@@ -108,7 +108,7 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
         }}
       >
         <ArtAsset asset={ASSETS.contactFrame} />
-        <div className="absolute inset-0 flex items-center justify-center gap-6">
+        <div className="absolute inset-0 flex items-center justify-center gap-8">
           {CONTACT_ITEMS.map((item) => (
             <button
               key={item.label}

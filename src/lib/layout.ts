@@ -18,7 +18,7 @@ export const CABIN_HEIGHT = ASSETS.cabinExterior.designHeight;
 export const CABIN_INTERIOR_LAYOUT = {
   gramophone: { x: 85, y: 250 },
   cat: { x: 535, y: 300 },
-  uciFlag: { x: 435, y: 65 },
+  uciFlag: { x: 500, y: 65 },
   contactFrame: { x: 230, y: 135 },
   fireplace: { x: 275, y: 238, width: 200, height: 200 },
 };
@@ -38,64 +38,103 @@ interface CloudPlacement extends PointLayout {
   driftDelay?: number;
 }
 
-export interface SceneLayout {
+// Portrait keeps its prior architecture: the whole 760x570 group (shell +
+// art together) scales from closedScale to openScale across the reveal.
+interface CabinScaleLayout {
+  closedScale: number;
+  openScale: number;
+}
+
+// Desktop: the 760x570 logical shell is a STABLE reference box -- it never
+// scales between closed/open. Only the visible art inside it changes size:
+// the closed exterior renders at cabinClosedArtScale (<1, centered in the
+// shell), and the open interior always renders at exactly 100% of the shell.
+// This keeps the yellow debug shell as a fixed positioning surface while the
+// blue artwork layers are the only thing that visually resizes.
+interface DesktopCabinArt {
+  shellScale: number;
+  closedArtScale: number;
+}
+
+// Desktop: nav arrows, title card, and house sign are each positioned
+// independently of the cabin (stage-relative), matching the existing
+// desktop composition.
+interface DesktopLayout {
+  mode: "desktop";
   stageWidth: number;
   stageHeight: number;
-  // Position on the stage; width/height always stay CABIN_WIDTH/CABIN_HEIGHT.
-  // Only x, y, and displayScale vary per composition mode.
-  cabin: { x: number; y: number; displayScale: number };
+  cabinX: number;
+  cabinY: number;
+  cabinArt: DesktopCabinArt;
   houseSign: PointLayout;
   titleCard: PointLayout;
-  experienceArrow: PointLayout;
-  projectsArrow: PointLayout;
   clouds: CloudPlacement[];
 }
 
-// Desktop: landscape viewports, 1920x1080 reference stage. Cabin display
-// scale starts at 0.85 (art stays 760x570; only the on-stage visual size
-// shrinks) and is anchored by its top-center so placement math stays simple:
-// x is the stage's horizontal center minus half the cabin width, y is just
-// the desired visual top -- no scale-compensation arithmetic needed because
-// CabinScene applies transform-origin "50% 0%" to the cabin group.
-export const DESKTOP_LAYOUT: SceneLayout = {
+// Portrait: the title card and house sign instead derive their Y position
+// from the cabin's own Y plus a fixed offset, so moving the cabin moves them
+// with it instead of needing their own independent stage-absolute values.
+interface PortraitLayout {
+  mode: "portrait";
+  stageWidth: number;
+  stageHeight: number;
+  cabinX: number;
+  cabinY: number;
+  cabinScale: CabinScaleLayout;
+  titleCardX: number;
+  titleCardOffsetFromCabinY: number;
+  houseSignX: number;
+  houseSignOffsetFromCabinY: number;
+  // Clouds are environment/background objects, not cabin-local -- this scale
+  // is independent of the cabin's own displayScale.
+  cloudScale: number;
+  clouds: CloudPlacement[];
+}
+
+export type SceneLayout = DesktopLayout | PortraitLayout;
+
+// Desktop: landscape viewports, 1920x1080 reference stage. The cabin group
+// is anchored by its top-center (CabinScene sets transform-origin "50% 0%"),
+// so the horizontal center (x=960) stays put regardless of scale and cabinX
+// only needs to account for CABIN_WIDTH -- no scale-compensation arithmetic.
+// shellScale positions/sizes the stable 760x570 logical shell on stage (it
+// does not change between closed/open); closedArtScale is how much smaller
+// the closed exterior art renders inside that stable shell (open interior
+// art is always 100% of the shell).
+export const DESKTOP_LAYOUT: DesktopLayout = {
+  mode: "desktop",
   stageWidth: DESKTOP_STAGE_WIDTH,
   stageHeight: DESKTOP_STAGE_HEIGHT,
-  cabin: { x: 960 - CABIN_WIDTH / 2, y: 330, displayScale: 0.85 },
+  cabinX: 960 - CABIN_WIDTH / 2,
+  cabinY: 275,
+  cabinArt: { shellScale: 0.89, closedArtScale: 0.95 },
   houseSign: { x: 1350, y: 720 },
   titleCard: { x: 960 - ASSETS.titleCard.designWidth / 2, y: 310 },
-  experienceArrow: { x: 960, y: 145 },
-  projectsArrow: { x: 960, y: 910 },
   clouds: [
-    { assetKey: "ambientCloud1", x: 230, y: 190 },
-    { assetKey: "ambientCloud2", x: 1370, y: 250 },
-    { assetKey: "ambientCloud1", x: 820, y: 110, flip: true, driftDelay: 6 },
-    { assetKey: "ambientCloud2", x: 120, y: 480, flip: true, driftDelay: 12 },
+    { assetKey: "ambientCloud1", x: 230, y: 80 },
+    { assetKey: "ambientCloud2", x: 1370, y: 120 },
   ],
 };
 
-// Portrait/mobile: square-or-narrower viewports, a genuinely separate
-// 1080x1920 reference stage (not desktop coordinates plus a zoom multiplier).
-// Same top-center anchoring trick as desktop, just centered on this stage's
-// own width and sized larger so the cabin reads as the dominant object.
-//
-// displayScale of 1.05 is chosen so the OPEN-state visual width (760 * 1.05 *
-// the 1.1 opening zoom factor applied in CabinScene ~= 878 units) lands at
-// the ~880-930 unit target for the primary/open view while staying under the
-// visible width on the narrowest required test viewport (390x844 covers
-// ~887 stage units) -- so the cabin never clips horizontally even mid-zoom.
-export const PORTRAIT_LAYOUT: SceneLayout = {
+// Portrait/mobile: 1080x1920 reference stage. Cabin size/position is kept
+// close to its prior, already-good values -- openScale is still ~10% over
+// closedScale, matching the old reveal zoom factor, just expressed as an
+// explicit end state instead of a multiplier applied at render time.
+export const PORTRAIT_LAYOUT: PortraitLayout = {
+  mode: "portrait",
   stageWidth: PORTRAIT_STAGE_WIDTH,
   stageHeight: PORTRAIT_STAGE_HEIGHT,
-  cabin: { x: 540 - CABIN_WIDTH / 2, y: 560, displayScale: 1.05 },
-  houseSign: { x: 850, y: 520 },
-  titleCard: { x: 540 - ASSETS.titleCard.designWidth / 2, y: 420 },
-  experienceArrow: { x: 540, y: 320 },
-  projectsArrow: { x: 540, y: 1360 },
+  cabinX: 540 - CABIN_WIDTH / 2,
+  cabinY: 560,
+  cabinScale: { closedScale: 1.05, openScale: 1.155 },
+  titleCardX: 540 - ASSETS.titleCard.designWidth / 2,
+  titleCardOffsetFromCabinY: -140,
+  houseSignX: 850,
+  houseSignOffsetFromCabinY: -40,
+  cloudScale: 1.35,
   clouds: [
     { assetKey: "ambientCloud1", x: 40, y: 50 },
-    { assetKey: "ambientCloud2", x: 600, y: 30, flip: true },
-    { assetKey: "ambientCloud1", x: 340, y: 190, flip: true, driftDelay: 6 },
-    { assetKey: "ambientCloud2", x: 90, y: 220, driftDelay: 12 },
+    { assetKey: "ambientCloud2", x: 600, y: 30 },
   ],
 };
 

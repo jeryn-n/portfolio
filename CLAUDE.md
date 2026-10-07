@@ -30,15 +30,41 @@ There are two explicit composition modes, chosen by viewport aspect ratio
 stage is active to cover the real viewport, exposing the mode via
 `CompositionModeContext`. `CabinScene` reads that mode and looks up a
 mode-specific `SceneLayout` (`src/lib/layout.ts`) for scene-level placement
-(cabin position + display scale, sign, title card, nav arrows, clouds) — it's
-one component and one state machine reused across both modes, not two.
+(cabin position, sign, title card, clouds) — it's one component and one
+state machine reused across both modes, not two.
+
+On desktop, the cabin's 760×570 logical shell is a **stable positioning
+surface** (`cabinArt.shellScale`) that never itself scales between closed
+and open -- only the artwork inside it resizes. Closed exterior art renders
+at `cabinArt.closedArtScale` (slightly smaller, centered via a 50%/50%
+transform-origin); open interior art always renders at exactly 100% of the
+shell. The click target and door hint live inside the same scaling exterior-art
+group, so they track the visible closed artwork rather than the larger
+shell. Portrait keeps the older, simpler model where the whole shell+art
+group scales together as one explicit closed/open pair
+(`cabinScale.closedScale` / `cabinScale.openScale`), since its current
+composition already looks right. On
+desktop the title card and house sign are positioned independently of the
+cabin (stage-relative); on portrait they instead derive their Y from the
+cabin's own Y plus a fixed offset (`titleCardOffsetFromCabinY` /
+`houseSignOffsetFromCabinY`), so moving the portrait cabin moves them with
+it. Ambient clouds are environment objects, not cabin-local, and portrait
+renders them at an independent `cloudScale`.
+
+Nav arrows (Experience/Projects) are **viewport-fixed UI, not stage
+objects** — they're rendered by `ViewportNavArrows` as a sibling of the
+scaled stage div (outside its `transform`), pinned near the top/bottom of
+the real browser viewport via CSS `position: fixed` and `env(safe-area-inset-*)`,
+so they never scale or shrink with the stage/cabin. Their shared
+closed/opening/open state comes from `CabinStateContext`, which is lifted
+above `SceneStage` so both the stage content and the viewport UI can read it.
 
 The cabin itself has its own **cabin-local 760×570 coordinate surface**
 (`CABIN_WIDTH`/`CABIN_HEIGHT`, also in `src/lib/layout.ts`). Every interior
 prop (fireplace, gramophone, cat, UCI flag, contact frame, the door-hint
 position) is positioned once against that surface and is identical in both
-modes — only the cabin group's own stage position and `displayScale` differ
-per mode, so interior geometry never needs separate mobile coordinates.
+modes — only the cabin group's own stage position and scale differ per
+mode, so interior geometry never needs separate mobile coordinates.
 
 ## Art & content
 

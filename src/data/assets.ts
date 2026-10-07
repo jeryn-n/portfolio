@@ -40,8 +40,8 @@ export const ASSETS = {
     id: "houseSign",
     src: "/art/cabin/house-sign.png",
     label: "Jeryn's House Sign",
-    designWidth: 210,
-    designHeight: 140,
+    designWidth: 140,
+    designHeight: 210,
   },
   cat: {
     id: "cat",
@@ -69,7 +69,7 @@ export const ASSETS = {
     src: "/art/cabin/contact-frame.png",
     label: "Contact Frame",
     designWidth: 300,
-    designHeight: 90,
+    designHeight: 70,
   },
   titleCard: {
     id: "titleCard",

@@ -10,6 +10,9 @@ interface AmbientCloudProps {
   y: number;
   flip?: boolean;
   driftDelay?: number;
+  // Clouds are environment objects, not cabin-local -- portrait mode renders
+  // them larger via this independent multiplier (see PORTRAIT_LAYOUT.cloudScale).
+  scale?: number;
 }
 
 const DRIFT_DISTANCE = 30;
@@ -18,11 +21,11 @@ const DRIFT_DURATION = 50;
 // A gentle placeholder drift so the sky doesn't feel static. True continuous
 // right-to-left scroll-looping (plus birds traveling with/across the clouds)
 // is future work -- see CLAUDE.md.
-export function AmbientCloud({ asset, x, y, flip = false, driftDelay = 0 }: AmbientCloudProps) {
+export function AmbientCloud({ asset, x, y, flip = false, driftDelay = 0, scale = 1 }: AmbientCloudProps) {
   return (
     <motion.div
       className="absolute"
-      style={{ left: x, top: y }}
+      style={{ left: x, top: y, scale }}
       animate={{ x: [0, -DRIFT_DISTANCE, 0] }}
       transition={{ duration: DRIFT_DURATION, delay: driftDelay, repeat: Infinity, ease: "easeInOut" }}
     >

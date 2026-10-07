@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { getCompositionMode, getStageSize, type CompositionMode } from "@/lib/stage";
 import { CompositionModeProvider } from "./CompositionModeContext";
 
@@ -30,6 +30,10 @@ function computeStageMetrics(viewportWidth: number, viewportHeight: number): Sta
 
 interface SceneStageProps {
   children: ReactNode;
+  // Rendered as a sibling of the scaled stage div, outside its transform, so
+  // viewport-fixed UI (e.g. ViewportNavArrows) sits in real browser pixels
+  // instead of being scaled/clipped along with the logical stage.
+  viewportUI?: ReactNode;
 }
 
 // Picks one of two explicit composition modes from viewport aspect ratio --
@@ -38,7 +42,7 @@ interface SceneStageProps {
 // active mode is exposed via context so a single scene component can look up
 // its own mode-specific scene layout while reusing identical state/animation
 // logic and the same cabin-local coordinate system in both modes.
-export function SceneStage({ children }: SceneStageProps) {
+export function SceneStage({ children, viewportUI }: SceneStageProps) {
   const [metrics, setMetrics] = useState<StageMetrics | null>(null);
 
   useEffect(() => {
@@ -65,6 +69,10 @@ export function SceneStage({ children }: SceneStageProps) {
           <CompositionModeProvider value={metrics.mode}>{children}</CompositionModeProvider>
         </div>
       )}
+      {/* viewportUI (e.g. ViewportNavArrows) reads useSearchParams for the
+          debug-layout flag; it renders unconditionally (not gated behind
+          `metrics`), so it needs its own Suspense boundary to prerender. */}
+      <Suspense fallback={null}>{viewportUI}</Suspense>
     </div>
   );
 }
