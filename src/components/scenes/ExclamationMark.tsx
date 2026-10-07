@@ -1,45 +1,69 @@
 "use client";
 
 import { motion, type Transition, type Variants } from "motion/react";
+import { ArtAsset } from "@/components/art/ArtAsset";
+import { ASSETS } from "@/data/assets";
+
+export interface BouncePattern {
+  keyframes: number[];
+  transition: Transition;
+}
 
 interface ExclamationMarkProps {
   x: number;
   y: number;
   ariaLabel: string;
+  bouncePattern?: BouncePattern;
 }
 
-const bounceTransition: Transition = {
-  duration: 1.6,
-  times: [0, 0.15, 0.3, 0.45, 0.6, 1],
-  repeat: Infinity,
-  ease: "easeOut",
-};
+const exclamationAsset = ASSETS.uiExclamation;
 
 const fadeInVariants: Variants = {
   hidden: { opacity: 0 },
   shown: { opacity: 1, transition: { duration: 0.4 } },
 };
 
-// A temporary HTML/CSS stand-in for a future art asset: fades in once, then
-// loops a two-bounce / brief-pause pattern until its parent stops rendering it.
-export function ExclamationMark({ x, y, ariaLabel }: ExclamationMarkProps) {
+// Continuous two-bounce / brief-pause loop, used by the exterior door hint.
+export const twoBouncePattern: BouncePattern = {
+  keyframes: [0, -10, 0, -10, 0, 0],
+  transition: {
+    duration: 1.6,
+    times: [0, 0.15, 0.3, 0.45, 0.6, 1],
+    repeat: Infinity,
+    ease: "easeOut",
+  },
+};
+
+// A single small bounce, then a ~2s pause, repeating -- much less insistent
+// than the door hint. Used by the gramophone hint.
+export const singleBouncePattern: BouncePattern = {
+  keyframes: [0, -8, 0, 0],
+  transition: {
+    duration: 2.4,
+    times: [0, 0.08, 0.17, 1],
+    repeat: Infinity,
+    ease: "easeOut",
+  },
+};
+
+// Renders through the normal ArtAsset fallback system, so until the real PNG
+// exists this appears as a labeled wireframe placeholder in production too.
+// Only the wrapper animates (fade + bounce) -- never the image itself -- so
+// dropping in the real art later needs no animation changes.
+export function ExclamationMark({ x, y, ariaLabel, bouncePattern = twoBouncePattern }: ExclamationMarkProps) {
   return (
     <motion.div
       role="status"
       aria-label={ariaLabel}
       className="pointer-events-none absolute"
-      style={{ left: x, top: y, width: 28, height: 28 }}
+      style={{ left: x, top: y, width: exclamationAsset.designWidth, height: exclamationAsset.designHeight }}
       initial="hidden"
       animate="shown"
       variants={fadeInVariants}
     >
-      <motion.span
-        className="flex h-7 w-7 items-center justify-center rounded-full bg-alert text-base font-bold leading-none text-alert-ink shadow-[0_0_0_2px_rgba(255,138,31,0.35)]"
-        animate={{ y: [0, -10, 0, -10, 0, 0] }}
-        transition={bounceTransition}
-      >
-        !
-      </motion.span>
+      <motion.div animate={{ y: bouncePattern.keyframes }} transition={bouncePattern.transition}>
+        <ArtAsset asset={exclamationAsset} />
+      </motion.div>
     </motion.div>
   );
 }

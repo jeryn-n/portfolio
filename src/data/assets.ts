@@ -69,7 +69,7 @@ export const ASSETS = {
     src: "/art/cabin/contact-frame.png",
     label: "Contact Frame",
     designWidth: 300,
-    designHeight: 140,
+    designHeight: 90,
   },
   titleCard: {
     id: "titleCard",
@@ -77,6 +77,15 @@ export const ASSETS = {
     label: "Roof Title Card",
     designWidth: 380,
     designHeight: 105,
+  },
+
+  // UI
+  uiExclamation: {
+    id: "uiExclamation",
+    src: "/art/ui/exclamation.png",
+    label: "Exclamation Hint",
+    designWidth: 48,
+    designHeight: 64,
   },
 
   // Ambient

@@ -1,23 +1,30 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { MOBILE_BREAKPOINT, MOBILE_ZOOM, STAGE_HEIGHT, STAGE_WIDTH } from "@/lib/stage";
+import { getCompositionMode, getStageSize, type CompositionMode } from "@/lib/stage";
+import { CompositionModeProvider } from "./CompositionModeContext";
 
 interface StageMetrics {
+  mode: CompositionMode;
+  stageWidth: number;
+  stageHeight: number;
   scale: number;
   offsetX: number;
   offsetY: number;
 }
 
 function computeStageMetrics(viewportWidth: number, viewportHeight: number): StageMetrics {
-  const coverScale = Math.max(viewportWidth / STAGE_WIDTH, viewportHeight / STAGE_HEIGHT);
-  const isMobile = viewportWidth < MOBILE_BREAKPOINT;
-  const scale = isMobile ? coverScale * MOBILE_ZOOM : coverScale;
+  const mode = getCompositionMode(viewportWidth, viewportHeight);
+  const { width: stageWidth, height: stageHeight } = getStageSize(mode);
+  const scale = Math.max(viewportWidth / stageWidth, viewportHeight / stageHeight);
 
   return {
+    mode,
+    stageWidth,
+    stageHeight,
     scale,
-    offsetX: (viewportWidth - STAGE_WIDTH * scale) / 2,
-    offsetY: (viewportHeight - STAGE_HEIGHT * scale) / 2,
+    offsetX: (viewportWidth - stageWidth * scale) / 2,
+    offsetY: (viewportHeight - stageHeight * scale) / 2,
   };
 }
 
@@ -25,11 +32,12 @@ interface SceneStageProps {
   children: ReactNode;
 }
 
-// Scales the fixed 1920x1080 reference canvas to cover whatever viewport it's
-// given, keeping the composition's proportions intact and clipping overflow
-// instead of letterboxing. Mobile applies an extra zoom so foreground art
-// reads at a reasonable size; per-breakpoint content overrides can layer on
-// top of this later.
+// Picks one of two explicit composition modes from viewport aspect ratio --
+// desktop (1920x1080) or portrait (1080x1920) -- and scales that stage to
+// cover the real viewport, clipping overflow instead of letterboxing. The
+// active mode is exposed via context so a single scene component can look up
+// its own mode-specific scene layout while reusing identical state/animation
+// logic and the same cabin-local coordinate system in both modes.
 export function SceneStage({ children }: SceneStageProps) {
   const [metrics, setMetrics] = useState<StageMetrics | null>(null);
 
@@ -49,12 +57,12 @@ export function SceneStage({ children }: SceneStageProps) {
         <div
           className="absolute left-0 top-0 origin-top-left"
           style={{
-            width: STAGE_WIDTH,
-            height: STAGE_HEIGHT,
+            width: metrics.stageWidth,
+            height: metrics.stageHeight,
             transform: `translate(${metrics.offsetX}px, ${metrics.offsetY}px) scale(${metrics.scale})`,
           }}
         >
-          {children}
+          <CompositionModeProvider value={metrics.mode}>{children}</CompositionModeProvider>
         </div>
       )}
     </div>

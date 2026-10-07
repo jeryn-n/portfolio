@@ -4,15 +4,27 @@ import { useEffect, useState } from "react";
 import { ArtAsset } from "@/components/art/ArtAsset";
 import { ASSETS, type ArtAssetDef } from "@/data/assets";
 import { CABIN_INTERIOR_LAYOUT } from "@/lib/layout";
-import { ExclamationMark } from "./ExclamationMark";
+import { ExclamationMark, singleBouncePattern } from "./ExclamationMark";
 
-const GRAMOPHONE_HINT_DURATION_MS = 5000;
+// Total time the gramophone hint stays on screen before it auto-dismisses.
+const GRAMOPHONE_HINT_DURATION_MS = 8000;
 
-// Cabin-local positioning: 0,0 is the top-left of the 760×570 cabin box.
-const { gramophone: grammyLayout, cat: catLayout, uciFlag: flagLayout, fireplace: fireplaceLayout, contactFrame: contactLayout } = CABIN_INTERIOR_LAYOUT;
+// Shift the hint slightly right/down from the gramophone's own anchor point.
+const GRAMOPHONE_HINT_SHIFT = { x: 0.1, y: 0.05 };
 
-const gramophoneHintX = grammyLayout.x + ASSETS.gramophone.designWidth / 2 - 14;
-const gramophoneHintY = grammyLayout.y - 34;
+// Cabin-local positioning: 0,0 is the top-left of the cabin's own design box.
+const {
+  gramophone: grammyLayout,
+  cat: catLayout,
+  uciFlag: flagLayout,
+  fireplace: fireplaceLayout,
+  contactFrame: contactLayout,
+} = CABIN_INTERIOR_LAYOUT;
+
+const gramophone = ASSETS.gramophone;
+const gramophoneHintX =
+  grammyLayout.x + gramophone.designWidth / 2 - 14 + gramophone.designWidth * GRAMOPHONE_HINT_SHIFT.x;
+const gramophoneHintY = grammyLayout.y - 34 + gramophone.designHeight * GRAMOPHONE_HINT_SHIFT.y;
 
 const CONTACT_ITEMS = [
   { label: "Email", glyph: "✉" },
@@ -50,9 +62,12 @@ interface CabinInteriorProps {
 }
 
 // The wireframe composition revealed once the front wall fades away. Layout
-// is cabin-local (0,0 = top-left of 760×570 box) and can be easily moved by
-// updating CABIN_INTERIOR_LAYOUT in src/lib/layout.ts. Geometry will change
-// once real art defines the actual room shape.
+// is cabin-local (0,0 = top-left of the cabin's design box) and can be moved
+// by updating CABIN_INTERIOR_LAYOUT in src/lib/layout.ts -- the same values
+// apply in both desktop and portrait composition modes. Geometry will change
+// once real art defines the actual room shape. A decorative picture frame
+// will eventually sit on the left wall, baked directly into the cabin
+// artwork rather than built as its own component.
 export function CabinInterior({ isOpen }: CabinInteriorProps) {
   // A future gramophone click can call setDismissed(true) directly to clear
   // the hint early instead of waiting out the timer.
@@ -93,7 +108,7 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
         }}
       >
         <ArtAsset asset={ASSETS.contactFrame} />
-        <div className="absolute inset-0 flex items-center justify-center gap-4">
+        <div className="absolute inset-0 flex items-center justify-center gap-6">
           {CONTACT_ITEMS.map((item) => (
             <button
               key={item.label}
@@ -120,7 +135,7 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
         isOpen={isOpen}
       />
       <InteriorHotspot
-        asset={ASSETS.gramophone}
+        asset={gramophone}
         x={grammyLayout.x}
         y={grammyLayout.y}
         label="Gramophone"
@@ -133,6 +148,7 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
           x={gramophoneHintX}
           y={gramophoneHintY}
           ariaLabel="Hint: try the gramophone"
+          bouncePattern={singleBouncePattern}
         />
       )}
     </div>

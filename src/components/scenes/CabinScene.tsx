@@ -2,35 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { motion, type Variants } from "motion/react";
+import { AmbientCloud } from "./AmbientCloud";
 import { ArtAsset } from "@/components/art/ArtAsset";
 import { ASSETS } from "@/data/assets";
-import {
-  CABIN_LAYOUT,
-  CLOUD_1_LAYOUT,
-  CLOUD_2_LAYOUT,
-  EXPERIENCE_ARROW_LAYOUT,
-  HOUSE_SIGN_LAYOUT,
-  PROJECTS_ARROW_LAYOUT,
-  TITLE_CARD_LAYOUT,
-} from "@/lib/layout";
+import { CABIN_HEIGHT, CABIN_WIDTH, DOOR_HINT_RATIO, getSceneLayout } from "@/lib/layout";
 import { CabinEntryHint } from "./CabinEntryHint";
 import { CabinInterior } from "./CabinInterior";
 import { CabinTitleCard } from "./CabinTitleCard";
+import { useCompositionMode } from "./CompositionModeContext";
 import { LayoutGuide } from "./LayoutGuide";
 import { SceneArrow } from "./SceneArrow";
-import { StageSprite } from "./StageSprite";
 
 type CabinState = "closed" | "opening" | "open";
 
-// Door hint is positioned in cabin-local coordinates.
-const doorHintX = 380;
-const doorHintY = 285;
+// Door hint position, in cabin-local coordinates -- moves/scales correctly
+// with the cabin in both composition modes since it's a fraction of the box.
+const doorHintX = CABIN_WIDTH * DOOR_HINT_RATIO.x;
+const doorHintY = CABIN_HEIGHT * DOOR_HINT_RATIO.y;
 
 // Target ~1.2s total (spec range 1.1-1.4s), smooth ease-in-out, no bounce.
 const REVEAL_DURATION = 1.2;
 const REVEAL_EASE: [number, number, number, number] = [0.4, 0, 0.2, 1];
 // Title card + nav arrows fade in during the final ~20% of the reveal.
 const LATE_REVEAL_DELAY = REVEAL_DURATION * 0.8;
+// The cabin's existing "small zoom" during opening, now relative to each
+// mode's base display scale rather than an absolute 1.0 starting point.
+const OPEN_SCALE_FACTOR = 1.1;
 
 const backgroundVariants: Variants = {
   closed: { scale: 1 },
@@ -42,12 +39,6 @@ const darkenVariants: Variants = {
   closed: { opacity: 0 },
   opening: { opacity: 0.4, transition: { duration: REVEAL_DURATION * 0.7, ease: REVEAL_EASE } },
   open: { opacity: 0.4 },
-};
-
-const cabinGroupVariants: Variants = {
-  closed: { scale: 1 },
-  opening: { scale: 1.1, transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE } },
-  open: { scale: 1.1 },
 };
 
 const signVariants: Variants = {
@@ -81,10 +72,13 @@ const interiorVariants: Variants = {
 };
 
 // P2: clickable closed cabin, the opening reveal, and the open-interior
-// wireframe. Experience/Projects travel, snow, birds, audio, and detail
-// panels are still future work.
+// wireframe -- now reused across two explicit composition modes (desktop and
+// portrait) via mode-specific scene layouts. Experience/Projects travel,
+// snow, birds, audio, and detail panels are still future work.
 export function CabinScene() {
   const [cabinState, setCabinState] = useState<CabinState>("closed");
+  const mode = useCompositionMode();
+  const layout = getSceneLayout(mode);
 
   useEffect(() => {
     if (cabinState !== "opening") return;
@@ -98,6 +92,17 @@ export function CabinScene() {
 
   const chromeRevealed = cabinState !== "closed";
 
+  // The cabin's base display scale varies by mode; the opening "zoom" is a
+  // small increase relative to that base rather than an absolute value, so
+  // it composes cleanly with either mode's starting size.
+  const baseScale = layout.cabin.displayScale;
+  const openScale = baseScale * OPEN_SCALE_FACTOR;
+  const cabinGroupVariants: Variants = {
+    closed: { scale: baseScale },
+    opening: { scale: openScale, transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE } },
+    open: { scale: openScale },
+  };
+
   return (
     <>
       <motion.div
@@ -106,9 +111,20 @@ export function CabinScene() {
         animate={cabinState}
         variants={backgroundVariants}
       >
-        <StageSprite asset={ASSETS.cabinExteriorBackground} x={0} y={0} />
-        <StageSprite asset={ASSETS.ambientCloud1} x={CLOUD_1_LAYOUT.x} y={CLOUD_1_LAYOUT.y} />
-        <StageSprite asset={ASSETS.ambientCloud2} x={CLOUD_2_LAYOUT.x} y={CLOUD_2_LAYOUT.y} />
+        <ArtAsset
+          asset={ASSETS.cabinExteriorBackground}
+          style={{ position: "absolute", left: 0, top: 0, width: layout.stageWidth, height: layout.stageHeight }}
+        />
+        {layout.clouds.map((cloud, index) => (
+          <AmbientCloud
+            key={index}
+            asset={ASSETS[cloud.assetKey]}
+            x={cloud.x}
+            y={cloud.y}
+            flip={cloud.flip}
+            driftDelay={cloud.driftDelay ?? 0}
+          />
+        ))}
       </motion.div>
 
       <motion.div
@@ -121,12 +137,7 @@ export function CabinScene() {
 
       <motion.div
         className="absolute"
-        style={{
-          left: HOUSE_SIGN_LAYOUT.x,
-          top: HOUSE_SIGN_LAYOUT.y,
-          width: HOUSE_SIGN_LAYOUT.width,
-          height: HOUSE_SIGN_LAYOUT.height,
-        }}
+        style={{ left: layout.houseSign.x, top: layout.houseSign.y }}
         initial="closed"
         animate={cabinState}
         variants={signVariants}
@@ -135,8 +146,8 @@ export function CabinScene() {
       </motion.div>
 
       <CabinTitleCard
-        x={TITLE_CARD_LAYOUT.x}
-        y={TITLE_CARD_LAYOUT.y}
+        x={layout.titleCard.x}
+        y={layout.titleCard.y}
         revealed={chromeRevealed}
         revealDelay={LATE_REVEAL_DELAY}
       />
@@ -144,16 +155,16 @@ export function CabinScene() {
       <SceneArrow
         direction="up"
         label="Experience"
-        x={EXPERIENCE_ARROW_LAYOUT.x}
-        y={EXPERIENCE_ARROW_LAYOUT.y}
+        x={layout.experienceArrow.x}
+        y={layout.experienceArrow.y}
         revealed={chromeRevealed}
         revealDelay={LATE_REVEAL_DELAY}
       />
       <SceneArrow
         direction="down"
         label="Projects"
-        x={PROJECTS_ARROW_LAYOUT.x}
-        y={PROJECTS_ARROW_LAYOUT.y}
+        x={layout.projectsArrow.x}
+        y={layout.projectsArrow.y}
         revealed={chromeRevealed}
         revealDelay={LATE_REVEAL_DELAY}
       />
@@ -161,10 +172,11 @@ export function CabinScene() {
       <motion.div
         className="absolute"
         style={{
-          left: CABIN_LAYOUT.x,
-          top: CABIN_LAYOUT.y,
-          width: CABIN_LAYOUT.width,
-          height: CABIN_LAYOUT.height,
+          left: layout.cabin.x,
+          top: layout.cabin.y,
+          width: CABIN_WIDTH,
+          height: CABIN_HEIGHT,
+          transformOrigin: "50% 0%",
         }}
         initial="closed"
         animate={cabinState}
@@ -208,7 +220,7 @@ export function CabinScene() {
         {cabinState === "closed" && <CabinEntryHint x={doorHintX} y={doorHintY} />}
       </motion.div>
 
-      <LayoutGuide />
+      <LayoutGuide mode={mode} />
     </>
   );
 }

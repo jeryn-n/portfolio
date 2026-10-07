@@ -18,12 +18,27 @@ product as much as the information they convey.
 
 ## Coordinate system
 
-Desktop scenes are authored against a logical **1920×1080 reference canvas**
-(`src/lib/stage.ts`). `SceneStage` scales that canvas to cover the real
-viewport and centers it; scene components place children using stage-unit
-`x`/`y` coordinates via `StageSprite`, never raw viewport pixels. Mobile will
-get its own positioning rules layered on top of this same stage — don't bypass
-it with one-off viewport math.
+There are two explicit composition modes, chosen by viewport aspect ratio
+(`src/lib/stage.ts`), not a single hardcoded pixel breakpoint:
+
+- **Desktop** (aspect ratio > 1): a logical **1920×1080 reference canvas**.
+- **Portrait/mobile** (aspect ratio ≤ 1): a logical **1080×1920 reference
+  canvas** — a genuinely separate composition, not the desktop stage plus a
+  zoom multiplier.
+
+`SceneStage` measures the viewport, picks the mode, and scales whichever
+stage is active to cover the real viewport, exposing the mode via
+`CompositionModeContext`. `CabinScene` reads that mode and looks up a
+mode-specific `SceneLayout` (`src/lib/layout.ts`) for scene-level placement
+(cabin position + display scale, sign, title card, nav arrows, clouds) — it's
+one component and one state machine reused across both modes, not two.
+
+The cabin itself has its own **cabin-local 760×570 coordinate surface**
+(`CABIN_WIDTH`/`CABIN_HEIGHT`, also in `src/lib/layout.ts`). Every interior
+prop (fireplace, gramophone, cat, UCI flag, contact frame, the door-hint
+position) is positioned once against that surface and is identical in both
+modes — only the cabin group's own stage position and `displayScale` differ
+per mode, so interior geometry never needs separate mobile coordinates.
 
 ## Art & content
 
