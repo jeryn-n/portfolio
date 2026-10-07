@@ -7,6 +7,8 @@
   --stage-sky: #10233d;
   --wireframe-border: #5b8ac1;
   --wireframe-fill: rgb(91 138 193 / 16%);
+  --alert: #ff8a1f;
+  --alert-ink: #2a1400;
 }
 
 @theme inline {
@@ -16,6 +18,8 @@
   --color-stage-sky: var(--stage-sky);
   --color-wireframe-border: var(--wireframe-border);
   --color-wireframe-fill: var(--wireframe-fill);
+  --color-alert: var(--alert);
+  --color-alert-ink: var(--alert-ink);
 }
 
 html,
