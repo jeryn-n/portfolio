@@ -32,10 +32,17 @@ interface PointLayout {
   y: number;
 }
 
+// Ambient clouds drift right-to-left and loop seamlessly (see AmbientCloud).
+// Each one varies in starting position, height, size and speed so the sky
+// doesn't read as one repeated element. Deliberately no `flip`: horizontally
+// mirroring the current placeholder cloud art is out of scope for v1.
 interface CloudPlacement extends PointLayout {
   assetKey: "ambientCloud1" | "ambientCloud2";
-  flip?: boolean;
-  driftDelay?: number;
+  // Stage pixels per second while the cabin is CLOSED. The cabin scene scales
+  // this down once the cabin opens.
+  speed: number;
+  // Slight per-cloud size variation, multiplied by the mode's cloudScale.
+  scale?: number;
 }
 
 // Portrait keeps its prior architecture: the whole 760x570 group (shell +
@@ -111,8 +118,10 @@ export const DESKTOP_LAYOUT: DesktopLayout = {
   houseSign: { x: 1350, y: 720 },
   titleCard: { x: 960 - ASSETS.titleCard.designWidth / 2, y: 310 },
   clouds: [
-    { assetKey: "ambientCloud1", x: 230, y: 80 },
-    { assetKey: "ambientCloud2", x: 1370, y: 120 },
+    { assetKey: "ambientCloud1", x: 230, y: 80, speed: 15 },
+    { assetKey: "ambientCloud2", x: 1370, y: 120, speed: 11, scale: 1.1 },
+    { assetKey: "ambientCloud1", x: 820, y: 205, speed: 18, scale: 0.85 },
+    { assetKey: "ambientCloud2", x: 60, y: 285, speed: 9, scale: 0.75 },
   ],
 };
 
@@ -133,8 +142,9 @@ export const PORTRAIT_LAYOUT: PortraitLayout = {
   houseSignOffsetFromCabinY: -40,
   cloudScale: 1.35,
   clouds: [
-    { assetKey: "ambientCloud1", x: 40, y: 50 },
-    { assetKey: "ambientCloud2", x: 600, y: 30 },
+    { assetKey: "ambientCloud1", x: 40, y: 50, speed: 12 },
+    { assetKey: "ambientCloud2", x: 600, y: 30, speed: 9, scale: 1.05 },
+    { assetKey: "ambientCloud1", x: 300, y: 235, speed: 15, scale: 0.8 },
   ],
 };
 

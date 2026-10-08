@@ -34,3 +34,74 @@ body {
   background: var(--stage-sky);
   color: var(--paper);
 }
+
+/* --- Environmental particles -------------------------------------------
+   Snow and birds animate with plain CSS keyframes rather than Motion, for
+   one specific reason: a blocking About/Education panel has to freeze the
+   environment in place, and `animation-play-state: paused` freezes every
+   particle mid-flight and resumes it exactly where it stopped. Pausing and
+   resuming Motion timelines for dozens of independently-delayed particles is
+   a great deal more machinery for the same visual result.
+
+   Each particle's randomness (size, drift, duration, delay) arrives as inline
+   CSS variables generated once on mount, so nothing here is ever driven by
+   per-frame React state. */
+
+@keyframes snow-fall {
+  from {
+    transform: translate3d(0, -10%, 0);
+  }
+  to {
+    transform: translate3d(var(--snow-drift, 0px), 100%, 0);
+  }
+}
+
+/* The flake element deliberately spans the full height of its layer, so the
+   `100%` above resolves against the layer's height rather than the few-pixel
+   dot's own. Only the ::before dot actually paints. */
+.snow-flake {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: var(--snow-size, 6px);
+  animation-name: snow-fall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.snow-flake::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--snow-size, 6px);
+  height: var(--snow-size, 6px);
+  border-radius: 50%;
+  background: var(--paper);
+  opacity: var(--snow-opacity, 0.8);
+}
+
+@keyframes bird-fly {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(var(--bird-travel, -100px), var(--bird-rise, 0px), 0);
+  }
+}
+
+.bird-sprite {
+  position: absolute;
+  animation-name: bird-fly;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  transition: opacity 300ms linear;
+}
+
+/* Set on a particle layer whose motion must hold still -- see
+   useEnvironmentMotion. This freezes the particles in place; it does not
+   hide them. */
+.env-frozen .snow-flake,
+.env-frozen .bird-sprite {
+  animation-play-state: paused;
+}

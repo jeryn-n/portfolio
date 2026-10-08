@@ -8,13 +8,26 @@ import { useAudio } from "@/components/audio/AudioProvider";
 import { useSiteUI } from "@/components/ui/SiteUIProvider";
 import { ASSETS } from "@/data/assets";
 import { CABIN_HEIGHT, CABIN_WIDTH, DOOR_HINT_RATIO, getSceneLayout } from "@/lib/layout";
-import { LATE_REVEAL_DELAY, REVEAL_DURATION, REVEAL_EASE } from "@/lib/reveal";
+import {
+  LATE_REVEAL_DELAY,
+  REDUCED_LATE_REVEAL_DELAY,
+  REDUCED_REVEAL_DURATION,
+  REVEAL_DURATION,
+  REVEAL_EASE,
+} from "@/lib/reveal";
+import { BirdLayer } from "./BirdLayer";
 import { CabinEntryHint } from "./CabinEntryHint";
 import { useCabinState } from "./CabinStateContext";
 import { CabinInterior } from "./CabinInterior";
 import { CabinTitleCard } from "./CabinTitleCard";
 import { useCompositionMode } from "./CompositionModeContext";
 import { LayoutGuide } from "./LayoutGuide";
+import { SnowLayer } from "./SnowLayer";
+import { useEnvironmentMotion } from "./useEnvironmentMotion";
+
+// Clouds keep drifting once the cabin is open, but noticeably slower -- the
+// outdoors is still alive while attention has moved indoors.
+const OPEN_CLOUD_SPEED_FACTOR = 0.6;
 
 // Door hint position, in cabin-local coordinates -- moves/scales correctly
 // with the cabin in both composition modes since it's a fraction of the box.
@@ -63,16 +76,17 @@ const interiorVariants: Variants = {
   open: { opacity: 1 },
 };
 
-// P2: clickable closed cabin, the opening reveal, and the open-interior
-// wireframe -- reused across two explicit composition modes (desktop and
-// portrait) via mode-specific scene layouts. Experience/Projects travel,
-// snow, birds, audio, and detail panels are still future work.
+// The clickable closed cabin, the opening reveal, the open-interior
+// wireframe, and the scene's environment (clouds, snow, birds) -- reused
+// across two explicit composition modes (desktop and portrait) via
+// mode-specific scene layouts.
 export function CabinScene() {
   const { cabinState, setCabinState } = useCabinState();
   const mode = useCompositionMode();
   const layout = getSceneLayout(mode);
   const { setAmbientMode } = useAudio();
   const { markCabinEntered } = useSiteUI();
+  const { reducedMotion, frozen } = useEnvironmentMotion();
 
   // Every variant group below starts from whatever state the cabin was
   // already in when this component mounted, not unconditionally "closed". On
@@ -85,11 +99,17 @@ export function CabinScene() {
   // during render (so it can feed `initial`) and is intentionally frozen.
   const [initialCabinState] = useState(cabinState);
 
+  // Reduced motion shortens the dwell in "opening" to match the much faster
+  // reveal it produces: Motion skips the scale/transform parts of the reveal
+  // entirely (see the MotionConfig in AppProviders), leaving only the
+  // cross-fade, so there is nothing left to wait 1.2s for.
+  const revealDuration = reducedMotion ? REDUCED_REVEAL_DURATION : REVEAL_DURATION;
+
   useEffect(() => {
     if (cabinState !== "opening") return;
-    const timer = setTimeout(() => setCabinState("open"), REVEAL_DURATION * 1000);
+    const timer = setTimeout(() => setCabinState("open"), revealDuration * 1000);
     return () => clearTimeout(timer);
-  }, [cabinState, setCabinState]);
+  }, [cabinState, setCabinState, revealDuration]);
 
   // Ambient context: exterior while closed/opening, interior once fully
   // open (switching at the end of the reveal is a sensible, simple choice).
@@ -121,6 +141,14 @@ export function CabinScene() {
       : { x: layout.houseSignX, y: layout.cabinY + layout.houseSignOffsetFromCabinY };
   // Clouds are environment objects, not cabin-local -- only portrait scales them up.
   const cloudScale = layout.mode === "portrait" ? layout.cloudScale : 1;
+
+  // Closed: full speed. Opening/open: slowed. Reduced motion: held still.
+  const cloudSpeedFactor = reducedMotion ? 0 : cabinState === "closed" ? 1 : OPEN_CLOUD_SPEED_FACTOR;
+
+  // Birds belong to the closed exterior only. New flights stop the instant
+  // the cabin starts opening, and BirdLayer fades out whatever is still
+  // airborne, so the OPEN state has none.
+  const birdsSpawning = cabinState === "closed" && !frozen && !reducedMotion;
 
   // Portrait keeps its prior architecture: the whole 760x570 group (shell +
   // art together) scales from an explicit closed end state to an explicit
@@ -170,11 +198,22 @@ export function CabinScene() {
             asset={ASSETS[cloud.assetKey]}
             x={cloud.x}
             y={cloud.y}
-            flip={cloud.flip}
-            driftDelay={cloud.driftDelay ?? 0}
-            scale={cloudScale}
+            speed={cloud.speed * cloudSpeedFactor}
+            wrapWidth={layout.stageWidth}
+            scale={cloudScale * (cloud.scale ?? 1)}
+            paused={frozen}
           />
         ))}
+
+        {/* Snow and birds live INSIDE this environment group, which is why
+            no mask is needed anywhere: the group sits beneath the house
+            sign, the title card and the whole cabin, so an open cabin's
+            interior is never snowed on and the snow simply reads as the
+            weather outside. Being inside this group also means the snow is
+            dimmed by the darkening layer below exactly as the rest of the
+            outdoors is when the cabin opens. */}
+        <SnowLayer enabled={!reducedMotion} frozen={frozen} />
+        <BirdLayer spawning={birdsSpawning} clearing={cabinState !== "closed"} />
       </motion.div>
 
       <motion.div
@@ -199,7 +238,7 @@ export function CabinScene() {
         x={titleCard.x}
         y={titleCard.y}
         revealed={chromeRevealed}
-        revealDelay={LATE_REVEAL_DELAY}
+        revealDelay={reducedMotion ? REDUCED_LATE_REVEAL_DELAY : LATE_REVEAL_DELAY}
       />
 
       {layout.mode === "portrait" ? (
@@ -282,7 +321,14 @@ export function CabinScene() {
         </div>
       )}
 
-      <LayoutGuide mode={mode} />
+      <LayoutGuide
+        mode={mode}
+        environment={{
+          snow: reducedMotion ? "off (reduced motion)" : frozen ? "paused" : "active",
+          clouds: `×${cloudSpeedFactor} (${cabinState === "closed" ? "closed" : "open"})${frozen ? " -- paused" : ""}`,
+          birds: birdsSpawning ? "active" : "inactive",
+        }}
+      />
     </>
   );
 }

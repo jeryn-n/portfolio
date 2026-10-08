@@ -1,5 +1,6 @@
 "use client";
 
+import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 import { AudioProvider } from "@/components/audio/AudioProvider";
 import { CabinStateProvider } from "@/components/scenes/CabinStateContext";
@@ -17,18 +18,34 @@ import { RouteSessionSync } from "./RouteSessionSync";
 // homepage, and the global viewport UI (menu / sound / panels) is never
 // unmounted or duplicated per page. All of it resets only on a full browser
 // refresh -- nothing is written to storage.
+// Reduced motion is handled by configuring the animation system we already
+// have, not by building a second one. `reducedMotion="user"` makes every
+// Motion component in the app skip transform animations (position, scale,
+// the stage's large vertical scene travel, the detail carousel's horizontal
+// slide) while still animating opacity -- so the cabin reveal becomes a
+// cross-fade, scene travel becomes a cut, and the carousel falls back to
+// pure fades, with no parallel set of variants to maintain.
+//
+// It does not cover the three environmental systems that deliberately sit
+// outside Motion: snow and birds are CSS keyframes, and the clouds are
+// driven by an integrated motion value rather than an animation. Each of
+// those checks `useEnvironmentMotion().reducedMotion` for itself.
+const REDUCED_MOTION = "user";
+
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
-    <AudioProvider>
-      <SiteUIProvider>
-        <CabinStateProvider>
-          <WorldSceneProvider>
-            <RouteSessionSync />
-            {children}
-            <GlobalViewportUI />
-          </WorldSceneProvider>
-        </CabinStateProvider>
-      </SiteUIProvider>
-    </AudioProvider>
+    <MotionConfig reducedMotion={REDUCED_MOTION}>
+      <AudioProvider>
+        <SiteUIProvider>
+          <CabinStateProvider>
+            <WorldSceneProvider>
+              <RouteSessionSync />
+              {children}
+              <GlobalViewportUI />
+            </WorldSceneProvider>
+          </CabinStateProvider>
+        </SiteUIProvider>
+      </AudioProvider>
+    </MotionConfig>
   );
 }

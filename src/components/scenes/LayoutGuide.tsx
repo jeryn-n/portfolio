@@ -5,8 +5,17 @@ import { ASSETS } from "@/data/assets";
 import { CABIN_HEIGHT, CABIN_INTERIOR_LAYOUT, CABIN_WIDTH, getSceneLayout } from "@/lib/layout";
 import type { CompositionMode } from "@/lib/stage";
 
+// Current state of the cabin's environmental systems, shown as plain status
+// text. Individual snowflakes and birds are deliberately not labelled.
+interface EnvironmentStatus {
+  snow: string;
+  clouds: string;
+  birds: string;
+}
+
 interface LayoutGuideProps {
   mode: CompositionMode;
+  environment?: EnvironmentStatus;
 }
 
 // Lightweight non-production composition guide for layout calibration.
@@ -16,7 +25,7 @@ interface LayoutGuideProps {
 // CABIN-LOCAL elements (interior props + door hint), and VIEWPORT UI (nav
 // arrows -- those render their own "Viewport UI" badge in SceneArrow since
 // they live outside this stage-coordinate SVG entirely).
-export function LayoutGuide({ mode }: LayoutGuideProps) {
+export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
   const searchParams = useSearchParams();
   const showGuide = searchParams.get("debug") === "layout";
 
@@ -118,6 +127,13 @@ export function LayoutGuide({ mode }: LayoutGuideProps) {
           )}
           <div className="text-magenta-400/80">CABIN-LOCAL -- interior props + door hint (magenta)</div>
           <div className="text-blue-300/80">VIEWPORT UI -- Experience/Projects arrows are fixed to the real viewport, not shown on this stage SVG</div>
+          {environment && (
+            <>
+              <div className="text-white/70">Snow: {environment.snow}</div>
+              <div className="text-white/70">Cloud speed: {environment.clouds}</div>
+              <div className="text-white/70">Bird spawning: {environment.birds}</div>
+            </>
+          )}
         </div>
         <div
           className="absolute border border-yellow-400/50 px-1 text-yellow-400/70"

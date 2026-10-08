@@ -182,3 +182,42 @@ export const ASSETS = {
 } as const satisfies Record<string, ArtAssetDef>;
 
 export type AssetId = keyof typeof ASSETS;
+
+// Exactly what the CLOSED exterior needs in order to be shown: the sky, the
+// cabin's closed shell, the sign, the drifting clouds, and the door hint.
+// The initial loading screen waits for this list and nothing else -- notably
+// not the interior, and not the other two scenes.
+export const ESSENTIAL_EXTERIOR_ASSETS: readonly AssetId[] = [
+  "cabinExteriorBackground",
+  "cabinExterior",
+  "houseSign",
+  "ambientCloud1",
+  "ambientCloud2",
+  "uiExclamation",
+];
+
+// Warmed in the background only AFTER the exterior is on screen and
+// interactive: the cabin's inside, the two neighbouring scenes, and the bird
+// sprite. Nothing in here can delay the reveal or block input.
+export const SECONDARY_ASSETS: readonly AssetId[] = [
+  "ambientBird",
+  "cabinInterior",
+  "cabinFrontWall",
+  "titleCard",
+  "contactFrame",
+  "cat",
+  "gramophone",
+  "uciFlag",
+  "experienceBackground",
+  "experienceCloud1",
+  "experienceCloud2",
+  "experienceCloud3",
+  "projectsBackground",
+  "projectBoulder1",
+  "projectBoulder2",
+  "projectBoulder3",
+];
+
+export function assetSources(ids: readonly AssetId[]): string[] {
+  return ids.map((id) => ASSETS[id].src);
+}

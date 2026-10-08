@@ -41,8 +41,15 @@ export function WorldSceneController() {
         neighborInvolved === "projects" ? "bg-stage-earth" : "bg-stage-sky"
       }`}
     >
+      {/* Each scene clips to its own bounds. This matters because the cabin's
+          environment group scales to 1.02 once the cabin is open, which
+          overflows the scene by ~1% on every side -- enough for the
+          exterior's background and its snowfall to bleed a few pixels into
+          whichever neighbouring scene is parked next to it. Clipping here
+          changes nothing for the scene actually on screen, since its own
+          bounds are the stage bounds. */}
       <motion.div
-        className="absolute inset-0"
+        className="absolute inset-0 overflow-hidden"
         style={{ pointerEvents: scene === "cabin" ? "auto" : "none" }}
         aria-hidden={scene !== "cabin"}
         animate={{ y: cabinY }}
@@ -52,7 +59,7 @@ export function WorldSceneController() {
       </motion.div>
 
       <motion.div
-        className="absolute inset-0"
+        className="absolute inset-0 overflow-hidden"
         style={{ pointerEvents: scene === "experience" ? "auto" : "none" }}
         aria-hidden={scene !== "experience"}
         animate={{ y: experienceY }}
@@ -62,7 +69,7 @@ export function WorldSceneController() {
       </motion.div>
 
       <motion.div
-        className="absolute inset-0"
+        className="absolute inset-0 overflow-hidden"
         style={{ pointerEvents: scene === "projects" ? "auto" : "none" }}
         aria-hidden={scene !== "projects"}
         animate={{ y: projectsY }}
