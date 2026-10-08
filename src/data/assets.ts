@@ -79,6 +79,15 @@ export const ASSETS = {
     designHeight: 105,
   },
 
+  // About
+  aboutPhoto: {
+    id: "aboutPhoto",
+    src: "/images/about/jeryn.jpg",
+    label: "Jeryn's About Photo",
+    designWidth: 480,
+    designHeight: 600,
+  },
+
   // UI
   uiExclamation: {
     id: "uiExclamation",

@@ -4,6 +4,8 @@ import { useEffect } from "react";
 import { motion, type Variants } from "motion/react";
 import { AmbientCloud } from "./AmbientCloud";
 import { ArtAsset } from "@/components/art/ArtAsset";
+import { useAudio } from "@/components/audio/AudioProvider";
+import { useSiteUI } from "@/components/ui/SiteUIProvider";
 import { ASSETS } from "@/data/assets";
 import { CABIN_HEIGHT, CABIN_WIDTH, DOOR_HINT_RATIO, getSceneLayout } from "@/lib/layout";
 import { LATE_REVEAL_DELAY, REVEAL_DURATION, REVEAL_EASE } from "@/lib/reveal";
@@ -69,12 +71,24 @@ export function CabinScene() {
   const { cabinState, setCabinState } = useCabinState();
   const mode = useCompositionMode();
   const layout = getSceneLayout(mode);
+  const { setAmbientMode } = useAudio();
+  const { markCabinEntered } = useSiteUI();
 
   useEffect(() => {
     if (cabinState !== "opening") return;
     const timer = setTimeout(() => setCabinState("open"), REVEAL_DURATION * 1000);
     return () => clearTimeout(timer);
   }, [cabinState, setCabinState]);
+
+  // Ambient context: exterior while closed/opening, interior once fully
+  // open (switching at the end of the reveal is a sensible, simple choice).
+  useEffect(() => {
+    setAmbientMode(cabinState === "open" ? "interior" : "exterior");
+  }, [cabinState, setAmbientMode]);
+
+  useEffect(() => {
+    if (cabinState === "open") markCabinEntered();
+  }, [cabinState, markCabinEntered]);
 
   function handleEnter() {
     setCabinState((prev) => (prev === "closed" ? "opening" : prev));
