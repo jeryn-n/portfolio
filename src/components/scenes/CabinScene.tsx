@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, type Variants } from "motion/react";
 import { AmbientCloud } from "./AmbientCloud";
 import { ArtAsset } from "@/components/art/ArtAsset";
@@ -74,6 +74,17 @@ export function CabinScene() {
   const { setAmbientMode } = useAudio();
   const { markCabinEntered } = useSiteUI();
 
+  // Every variant group below starts from whatever state the cabin was
+  // already in when this component mounted, not unconditionally "closed". On
+  // the normal `/` flow that is "closed", so the approved opening reveal is
+  // untouched. It matters when the cabin mounts already open -- returning to
+  // `/` from a detail route, or a direct #experience/#projects load -- where
+  // an unconditional "closed" initial would replay the entire opening
+  // animation on arrival.
+  // A never-updated piece of state is the mount-time snapshot: it is read
+  // during render (so it can feed `initial`) and is intentionally frozen.
+  const [initialCabinState] = useState(cabinState);
+
   useEffect(() => {
     if (cabinState !== "opening") return;
     const timer = setTimeout(() => setCabinState("open"), REVEAL_DURATION * 1000);
@@ -145,7 +156,7 @@ export function CabinScene() {
     <>
       <motion.div
         className="absolute inset-0"
-        initial="closed"
+        initial={initialCabinState}
         animate={cabinState}
         variants={backgroundVariants}
       >
@@ -169,7 +180,7 @@ export function CabinScene() {
       <motion.div
         aria-hidden="true"
         className="absolute inset-0 bg-black"
-        initial="closed"
+        initial={initialCabinState}
         animate={cabinState}
         variants={darkenVariants}
       />
@@ -177,7 +188,7 @@ export function CabinScene() {
       <motion.div
         className="absolute"
         style={{ left: houseSign.x, top: houseSign.y }}
-        initial="closed"
+        initial={initialCabinState}
         animate={cabinState}
         variants={signVariants}
       >
@@ -195,19 +206,19 @@ export function CabinScene() {
         <motion.div
           className="absolute"
           style={{ left: layout.cabinX, width: CABIN_WIDTH, height: CABIN_HEIGHT, transformOrigin: "50% 0%" }}
-          initial="closed"
+          initial={initialCabinState}
           animate={cabinState}
           variants={cabinGroupVariants as Variants}
         >
-          <motion.div className="absolute inset-0" initial="closed" animate={cabinState} variants={interiorVariants}>
+          <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={interiorVariants}>
             <CabinInterior isOpen={cabinState === "open"} />
           </motion.div>
 
-          <motion.div className="absolute inset-0" initial="closed" animate={cabinState} variants={frontWallVariants}>
+          <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={frontWallVariants}>
             <ArtAsset asset={ASSETS.cabinFrontWall} />
           </motion.div>
 
-          <motion.div className="absolute inset-0" initial="closed" animate={cabinState} variants={exteriorShellVariants}>
+          <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={exteriorShellVariants}>
             <ArtAsset asset={ASSETS.cabinExterior} />
           </motion.div>
 
@@ -235,7 +246,7 @@ export function CabinScene() {
         >
           {/* Interior always renders at exactly 100% of the stable logical
               shell -- it never participates in the closed/open art scale. */}
-          <motion.div className="absolute inset-0" initial="closed" animate={cabinState} variants={interiorVariants}>
+          <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={interiorVariants}>
             <CabinInterior isOpen={cabinState === "open"} />
           </motion.div>
 
@@ -246,15 +257,15 @@ export function CabinScene() {
           <motion.div
             className="absolute inset-0"
             style={{ transformOrigin: "50% 50%" }}
-            initial="closed"
+            initial={initialCabinState}
             animate={cabinState}
             variants={exteriorArtScaleVariants as Variants}
           >
-            <motion.div className="absolute inset-0" initial="closed" animate={cabinState} variants={frontWallVariants}>
+            <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={frontWallVariants}>
               <ArtAsset asset={ASSETS.cabinFrontWall} />
             </motion.div>
 
-            <motion.div className="absolute inset-0" initial="closed" animate={cabinState} variants={exteriorShellVariants}>
+            <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={exteriorShellVariants}>
               <ArtAsset asset={ASSETS.cabinExterior} />
             </motion.div>
 

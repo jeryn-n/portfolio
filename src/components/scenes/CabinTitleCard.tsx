@@ -15,13 +15,18 @@ const titleCard = ASSETS.titleCard;
 
 // Decorative roof signage revealed alongside the interior. Carries real copy
 // but is never clickable.
+//
+// `initial` is read once, on mount only, so it starts from the current
+// revealed state: a cabin that mounts already open (returning from a detail
+// route, or a direct hash entry) shows its signage immediately instead of
+// replaying the delayed reveal fade.
 export function CabinTitleCard({ x, y, revealed, revealDelay }: CabinTitleCardProps) {
   return (
     <motion.div
       aria-hidden={!revealed}
       className="pointer-events-none absolute"
       style={{ left: x, top: y, width: titleCard.designWidth, height: titleCard.designHeight }}
-      initial={{ opacity: 0 }}
+      initial={{ opacity: revealed ? 1 : 0 }}
       animate={{ opacity: revealed ? 1 : 0 }}
       transition={{ duration: 0.5, delay: revealDelay, ease: [0.4, 0, 0.2, 1] }}
     >

@@ -14,7 +14,11 @@ interface GoToOptions {
   // and allow it even if it looks like a non-adjacent jump.
   fromHistory?: boolean;
   // Snap directly to the target with no slide animation and no transition
-  // lock (used only for the initial #experience/#projects hash entry).
+  // lock. Used for direct addressing rather than world travel -- the initial
+  // #experience/#projects hash entry, and route changes that land on a
+  // specific scene (a detail page's Exit control, or the menu on a detail
+  // route). Adjacency doesn't apply to these: it constrains animated travel
+  // through the cabin hub, not naming a destination outright.
   instant?: boolean;
 }
 
@@ -87,7 +91,7 @@ export function WorldSceneProvider({ children }: { children: ReactNode }) {
     (target: Scene, options: GoToOptions = {}) => {
       const current = sceneRef.current;
       if (current === target) return;
-      if (!options.fromHistory && !isAdjacentMove(current, target)) return;
+      if (!options.fromHistory && !options.instant && !isAdjacentMove(current, target)) return;
       if (!options.instant && lockRef.current === "transitioning") return;
 
       setTravelDirection(directionFor(current, target));

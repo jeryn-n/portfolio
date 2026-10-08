@@ -19,6 +19,11 @@ export const AUDIO = {
   ambience: {
     exterior: { src: null as string | null },
     interior: { src: null as string | null },
+    // Deliberately silent: used by non-world routes (portfolio detail pages)
+    // so they contribute no environmental ambience. Keeping it in the same
+    // lookup table means AudioProvider needs no special-casing, and it stays
+    // null permanently -- there is no "detail page ambience" asset.
+    none: { src: null as string | null },
   },
   sfx: {
     click: { src: null as string | null },

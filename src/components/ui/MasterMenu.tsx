@@ -1,8 +1,9 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
-import { useWorldScene } from "@/components/scenes/WorldSceneContext";
+import { useWorldScene, type Scene } from "@/components/scenes/WorldSceneContext";
 import { SITE } from "@/data/site";
 import { useSiteUI } from "./SiteUIProvider";
 
@@ -17,9 +18,15 @@ const MENU_ITEMS: Array<{ label: string; kind: MenuItemKind }> = [
 ];
 
 // Very subtle upper-left menu, only shown once the cabin has been entered.
+// Mounted globally (see GlobalViewportUI) so it persists across routes, which
+// makes it route-aware: on the homepage its scene items are animated world
+// travel, and on a portfolio detail route they are client-side navigations
+// back to the homepage addressed at the right scene.
 export function MasterMenu() {
   const { hasEnteredCabin, menuOpen, toggleMenu, closeMenu, openPanel } = useSiteUI();
   const { scene, goTo } = useWorldScene();
+  const pathname = usePathname();
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,30 +47,50 @@ export function MasterMenu() {
 
   if (!hasEnteredCabin) return null;
 
-  // Menu actions are explicit, deliberate choices -- they close the menu and
-  // call goTo directly rather than going through useSceneNavigation's
-  // `navigate` (which gates on the menu being closed, since that gate exists
-  // to stop ambient wheel/swipe/keyboard input while the menu owns focus).
-  // Crossing Experience<->Projects is never a single jump: it always lands on
-  // Cabin first, exactly like every other scene-travel path.
-  function handleItemClick(kind: MenuItemKind) {
-    if (kind === "home") {
+  const onHomepage = pathname === "/";
+
+  // Homepage: deliberate world travel. These call goTo directly rather than
+  // going through useSceneNavigation's `navigate` (which gates on the menu
+  // being closed, since that gate exists to stop ambient wheel/swipe/keyboard
+  // input while the menu owns focus). Crossing Experience<->Projects is never
+  // a single jump: it always lands on Cabin first, exactly like every other
+  // scene-travel path.
+  function travelOnHomepage(target: Scene) {
+    if (target === "cabin") {
       if (scene !== "cabin") goTo("cabin");
-      closeMenu();
-    } else if (kind === "experience") {
-      if (scene === "cabin") goTo("experience");
-      else if (scene === "projects") goTo("cabin");
-      closeMenu();
-    } else if (kind === "projects") {
-      if (scene === "cabin") goTo("projects");
-      else if (scene === "experience") goTo("cabin");
-      closeMenu();
-    } else if (kind === "about") {
+      return;
+    }
+    if (scene === "cabin") goTo(target);
+    else if (scene !== target) goTo("cabin");
+  }
+
+  // Detail routes: the WorldSceneController isn't mounted, so there is no
+  // scene state to animate -- we set the destination scene outright (instant,
+  // no history push of its own) and let the router carry us to the matching
+  // URL. The world then mounts already on that scene, so arrival needs no
+  // fake travel and doesn't depend on hash-read timing.
+  function routeToScene(target: Scene) {
+    goTo(target, { instant: true });
+    router.push(target === "cabin" ? "/" : `/#${target}`);
+  }
+
+  function handleItemClick(kind: MenuItemKind) {
+    if (kind === "about") {
+      // openPanel closes the menu itself.
       openPanel("about");
-    } else if (kind === "resume") {
+      return;
+    }
+    if (kind === "resume") {
       window.open(SITE.resumeUrl, "_blank", "noopener,noreferrer");
       closeMenu();
+      return;
     }
+
+    const target: Scene = kind === "home" ? "cabin" : kind;
+    // Always close the menu before travelling or routing.
+    closeMenu();
+    if (onHomepage) travelOnHomepage(target);
+    else routeToScene(target);
   }
 
   return (

@@ -3,7 +3,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { AUDIO, type SfxKey } from "@/data/audio";
 
-export type AmbientMode = "exterior" | "interior";
+// "none" is a real mode, not an absence of one: routes outside the world
+// (portfolio detail pages) select it so no ambience plays there, while music
+// and the foley-enabled flag are left completely untouched.
+export type AmbientMode = "exterior" | "interior" | "none";
 
 interface AudioContextValue {
   foleyEnabled: boolean;
