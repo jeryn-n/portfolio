@@ -16,6 +16,8 @@ export interface SiteData {
     school: string;
     program: string;
     details: string;
+    program2: string;
+    details2: string;
   };
 }
 
@@ -23,15 +25,17 @@ export const SITE: SiteData = {
   name: "Jeryn Nyberg",
   title: "Digital Creator",
   email: "jdnyberg@uci.edu",
-  linkedinUrl: null,
+  linkedinUrl: "www.linkedin.com/in/jerynn",
   resumeUrl: "/resume.pdf",
   about: {
     photoSrc: "/images/about/jeryn.jpg",
-    bio: "Placeholder bio -- real copy coming soon.",
+    bio: "A builder of things.",
   },
   education: {
     school: "University of California, Irvine",
-    program: "Placeholder degree / program",
-    details: "Placeholder education details -- real copy coming soon.",
+    program: "School of Information and Computer Science",
+    details: "B.S. Game Design & Interactive Media",
+    program2: "School of Humanities",
+    details2: "B.A. Film & Media Studies"
   },
 };
