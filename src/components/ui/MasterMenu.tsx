@@ -2,24 +2,24 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef } from "react";
+import { useWorldScene } from "@/components/scenes/WorldSceneContext";
 import { SITE } from "@/data/site";
 import { useSiteUI } from "./SiteUIProvider";
 
-type MenuItemKind = "home" | "disabled" | "about" | "resume";
+type MenuItemKind = "home" | "experience" | "projects" | "about" | "resume";
 
 const MENU_ITEMS: Array<{ label: string; kind: MenuItemKind }> = [
   { label: "Home", kind: "home" },
-  { label: "Experience", kind: "disabled" },
-  { label: "Projects", kind: "disabled" },
+  { label: "Experience", kind: "experience" },
+  { label: "Projects", kind: "projects" },
   { label: "About", kind: "about" },
   { label: "Resume", kind: "resume" },
 ];
 
 // Very subtle upper-left menu, only shown once the cabin has been entered.
-// Experience/Projects render visibly but disabled -- P4 wires up scene
-// travel.
 export function MasterMenu() {
   const { hasEnteredCabin, menuOpen, toggleMenu, closeMenu, openPanel } = useSiteUI();
+  const { scene, goTo } = useWorldScene();
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -40,8 +40,23 @@ export function MasterMenu() {
 
   if (!hasEnteredCabin) return null;
 
+  // Menu actions are explicit, deliberate choices -- they close the menu and
+  // call goTo directly rather than going through useSceneNavigation's
+  // `navigate` (which gates on the menu being closed, since that gate exists
+  // to stop ambient wheel/swipe/keyboard input while the menu owns focus).
+  // Crossing Experience<->Projects is never a single jump: it always lands on
+  // Cabin first, exactly like every other scene-travel path.
   function handleItemClick(kind: MenuItemKind) {
     if (kind === "home") {
+      if (scene !== "cabin") goTo("cabin");
+      closeMenu();
+    } else if (kind === "experience") {
+      if (scene === "cabin") goTo("experience");
+      else if (scene === "projects") goTo("cabin");
+      closeMenu();
+    } else if (kind === "projects") {
+      if (scene === "cabin") goTo("projects");
+      else if (scene === "experience") goTo("cabin");
       closeMenu();
     } else if (kind === "about") {
       openPanel("about");
@@ -79,21 +94,16 @@ export function MasterMenu() {
             transition={{ duration: 0.16 }}
             className="mt-2 w-40 border-2 border-ink-soft bg-paper py-1 text-ink shadow-md"
           >
-            {MENU_ITEMS.map((item) => {
-              const disabled = item.kind === "disabled";
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  disabled={disabled}
-                  aria-disabled={disabled}
-                  onClick={() => handleItemClick(item.kind)}
-                  className="block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide hover:bg-ink-soft hover:text-paper disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
-                >
-                  {item.label}
-                </button>
-              );
-            })}
+            {MENU_ITEMS.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => handleItemClick(item.kind)}
+                className="block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide hover:bg-ink-soft hover:text-paper"
+              >
+                {item.label}
+              </button>
+            ))}
           </motion.div>
         )}
       </AnimatePresence>

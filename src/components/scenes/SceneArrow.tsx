@@ -8,10 +8,13 @@ type ArrowEdge = "top" | "bottom";
 
 interface SceneArrowProps {
   direction: ArrowDirection;
-  label: string;
+  ariaLabel: string;
+  displayText: string;
   edge: ArrowEdge;
   revealed: boolean;
+  interactive: boolean;
   revealDelay: number;
+  onActivate: () => void;
   debug?: boolean;
 }
 
@@ -22,13 +25,25 @@ const pulseTransition: Transition = {
   ease: "easeInOut",
 };
 
-// A future Experience/Projects scene-travel control. Lives in the
+// Experience/Cabin/Projects scene-travel control. Lives in the
 // viewport-fixed UI layer (see ViewportNavArrows / SceneStage), not the
 // logical stage, so it never scales with the cabin/stage on desktop or
-// mobile. For now it only fades in near the end of the cabin reveal, idles
-// with a subtle pulse, and does not navigate anywhere -- wiring that up is a
-// later iteration's job.
-export function SceneArrow({ direction, label, edge, revealed, revealDelay, debug = false }: SceneArrowProps) {
+// mobile. `revealed` controls visibility (hidden during cabin closed/opening
+// or a blocking modal); `interactive` separately controls whether a click
+// actually does anything (false during an active transition or while the
+// menu owns input), so the arrow can stay visually present without allowing
+// double activation.
+export function SceneArrow({
+  direction,
+  ariaLabel,
+  displayText,
+  edge,
+  revealed,
+  interactive,
+  revealDelay,
+  onActivate,
+  debug = false,
+}: SceneArrowProps) {
   const triangleClassName =
     direction === "up"
       ? "h-0 w-0 border-x-[14px] border-x-transparent border-b-[22px] border-b-paper"
@@ -49,9 +64,11 @@ export function SceneArrow({ direction, label, edge, revealed, revealDelay, debu
     >
       <button
         type="button"
-        aria-label={label}
+        aria-label={ariaLabel}
+        onClick={onActivate}
+        disabled={!interactive}
         className={`flex flex-col items-center gap-1 bg-transparent p-1 ${
-          revealed ? "pointer-events-auto" : "pointer-events-none"
+          revealed && interactive ? "pointer-events-auto" : "pointer-events-none"
         }`}
       >
         <motion.span
@@ -60,7 +77,7 @@ export function SceneArrow({ direction, label, edge, revealed, revealDelay, debu
           animate={{ scale: [1, 1.08, 1, 1.08, 1, 1] }}
           transition={pulseTransition}
         />
-        <span className="text-xs font-medium uppercase tracking-wide text-paper">{label}</span>
+        <span className="text-xs font-medium uppercase tracking-wide text-paper">{displayText}</span>
       </button>
       {debug && (
         <span className="rounded bg-black/60 px-1 text-[9px] uppercase tracking-wide text-cyan-300">

@@ -10,7 +10,7 @@
 //   /public/audio/ambience/   -- exterior.mp3, interior.mp3 (looping)
 //   /public/audio/sfx/        -- click.mp3, panel-open.mp3, panel-close.mp3, meow-*.mp3
 
-export type SfxKey = "click" | "panelOpen" | "panelClose";
+export type SfxKey = "click" | "panelOpen" | "panelClose" | "swipe";
 
 export const AUDIO = {
   music: {
@@ -24,9 +24,9 @@ export const AUDIO = {
     click: { src: null as string | null },
     panelOpen: { src: null as string | null },
     panelClose: { src: null as string | null },
+    // Played once whenever Experience/Cabin/Projects scene travel begins.
+    swipe: { src: null as string | null },
   },
   // Randomly chosen from on each cat click. Empty is a valid, safe state.
   catMeows: [] as string[],
-  // Reserved for future wheel/swipe scene navigation (P4+) -- not used yet.
-  swipe: { src: null as string | null },
 };

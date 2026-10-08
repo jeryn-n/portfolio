@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { AudioProvider } from "@/components/audio/AudioProvider";
 import { CabinStateProvider } from "@/components/scenes/CabinStateContext";
+import { WorldSceneProvider } from "@/components/scenes/WorldSceneContext";
 import { SiteUIProvider } from "@/components/ui/SiteUIProvider";
 
 // Single client boundary mounted from the root (Server Component) layout, so
@@ -13,7 +14,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <AudioProvider>
       <SiteUIProvider>
-        <CabinStateProvider>{children}</CabinStateProvider>
+        <CabinStateProvider>
+          <WorldSceneProvider>{children}</WorldSceneProvider>
+        </CabinStateProvider>
       </SiteUIProvider>
     </AudioProvider>
   );

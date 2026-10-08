@@ -5,6 +5,7 @@
   --ink: #0b1d33;
   --ink-soft: #1c3a5e;
   --stage-sky: #10233d;
+  --stage-earth: #2c2013;
   --wireframe-border: #5b8ac1;
   --wireframe-fill: rgb(91 138 193 / 16%);
   --alert: #ff8a1f;
@@ -16,6 +17,7 @@
   --color-ink: var(--ink);
   --color-ink-soft: var(--ink-soft);
   --color-stage-sky: var(--stage-sky);
+  --color-stage-earth: var(--stage-earth);
   --color-wireframe-border: var(--wireframe-border);
   --color-wireframe-fill: var(--wireframe-fill);
   --color-alert: var(--alert);
