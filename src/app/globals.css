@@ -36,7 +36,8 @@ body {
 }
 
 /* --- Environmental particles -------------------------------------------
-   Snow and birds animate with plain CSS keyframes rather than Motion, for
+   Snow, birds and the airplane animate with plain CSS keyframes rather than
+   Motion, for
    one specific reason: a blocking About/Education panel has to freeze the
    environment in place, and `animation-play-state: paused` freezes every
    particle mid-flight and resumes it exactly where it stopped. Pausing and
@@ -81,18 +82,20 @@ body {
   opacity: var(--snow-opacity, 0.8);
 }
 
-@keyframes bird-fly {
+/* One straight, linear crossing of the sky, shared by birds and the
+   airplane. Direction comes from the sign of --flyer-travel. */
+@keyframes flyer-fly {
   from {
     transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translate3d(var(--bird-travel, -100px), var(--bird-rise, 0px), 0);
+    transform: translate3d(var(--flyer-travel, -100px), var(--flyer-rise, 0px), 0);
   }
 }
 
-.bird-sprite {
+.flyer-sprite {
   position: absolute;
-  animation-name: bird-fly;
+  animation-name: flyer-fly;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
   transition: opacity 300ms linear;
@@ -102,6 +105,6 @@ body {
    useEnvironmentMotion. This freezes the particles in place; it does not
    hide them. */
 .env-frozen .snow-flake,
-.env-frozen .bird-sprite {
+.env-frozen .flyer-sprite {
   animation-play-state: paused;
 }

@@ -7,34 +7,46 @@ export interface ArtAssetDef {
 }
 
 export const ASSETS = {
-  // Cabin
-  cabinExteriorBackground: {
-    id: "cabinExteriorBackground",
-    src: "/art/cabin/exterior-background.png",
-    label: "Exterior Background",
+  // Cabin exterior environment: two registered layers of one 1920x1620
+  // master. The mountains-ground layer is transparent above the peaks, so
+  // rear clouds can pass behind it. Both are cropped, never stretched -- see
+  // ExteriorCrop in src/lib/layout.ts.
+  cabinSky: {
+    id: "cabinSky",
+    src: "/art/cabin/sky.png",
+    label: "Sky",
     designWidth: 1920,
-    designHeight: 1080,
+    designHeight: 1620,
   },
+  cabinMountainsGround: {
+    id: "cabinMountainsGround",
+    src: "/art/cabin/mountains-ground.png",
+    label: "Mountains + Ground",
+    designWidth: 1920,
+    designHeight: 1620,
+  },
+
+  // Cabin: all three layers share the 640x720 logical shell.
   cabinExterior: {
     id: "cabinExterior",
     src: "/art/cabin/cabin-exterior.png",
     label: "Cabin Exterior",
-    designWidth: 760,
-    designHeight: 570,
+    designWidth: 640,
+    designHeight: 720,
   },
   cabinFrontWall: {
     id: "cabinFrontWall",
     src: "/art/cabin/cabin-front-wall.png",
     label: "Cabin Front Wall",
-    designWidth: 760,
-    designHeight: 570,
+    designWidth: 640,
+    designHeight: 720,
   },
   cabinInterior: {
     id: "cabinInterior",
     src: "/art/cabin/cabin-interior.png",
     label: "Cabin Interior",
-    designWidth: 760,
-    designHeight: 570,
+    designWidth: 640,
+    designHeight: 720,
   },
   houseSign: {
     id: "houseSign",
@@ -112,12 +124,21 @@ export const ASSETS = {
     designWidth: 450,
     designHeight: 175,
   },
+  // Bird and airplane art is drawn small in the middle of a 400x250 canvas;
+  // the layers that fly them scale them down further to read as distant.
   ambientBird: {
     id: "ambientBird",
     src: "/art/ambient/bird.png",
     label: "Bird",
-    designWidth: 80,
-    designHeight: 50,
+    designWidth: 400,
+    designHeight: 250,
+  },
+  ambientAirplane: {
+    id: "ambientAirplane",
+    src: "/art/ambient/airplane.png",
+    label: "Airplane",
+    designWidth: 400,
+    designHeight: 250,
   },
 
   // Experience
@@ -183,12 +204,13 @@ export const ASSETS = {
 
 export type AssetId = keyof typeof ASSETS;
 
-// Exactly what the CLOSED exterior needs in order to be shown: the sky, the
-// cabin's closed shell, the sign, the drifting clouds, and the door hint.
-// The initial loading screen waits for this list and nothing else -- notably
-// not the interior, and not the other two scenes.
+// Exactly what the CLOSED exterior needs in order to be shown: the sky and
+// mountains, the cabin's closed shell, the sign, the drifting clouds, and the
+// door hint. The initial loading screen waits for this list and nothing else
+// -- notably not the interior, and not the other two scenes.
 export const ESSENTIAL_EXTERIOR_ASSETS: readonly AssetId[] = [
-  "cabinExteriorBackground",
+  "cabinSky",
+  "cabinMountainsGround",
   "cabinExterior",
   "houseSign",
   "ambientCloud1",
@@ -198,9 +220,10 @@ export const ESSENTIAL_EXTERIOR_ASSETS: readonly AssetId[] = [
 
 // Warmed in the background only AFTER the exterior is on screen and
 // interactive: the cabin's inside, the two neighbouring scenes, and the bird
-// sprite. Nothing in here can delay the reveal or block input.
+// and airplane sprites. Nothing in here can delay the reveal or block input.
 export const SECONDARY_ASSETS: readonly AssetId[] = [
   "ambientBird",
+  "ambientAirplane",
   "cabinInterior",
   "cabinFrontWall",
   "titleCard",

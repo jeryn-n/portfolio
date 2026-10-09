@@ -33,14 +33,24 @@ mode-specific `SceneLayout` (`src/lib/layout.ts`) for scene-level placement
 (cabin position, sign, title card, clouds) — it's one component and one
 state machine reused across both modes, not two.
 
-On desktop, the cabin's 760×570 logical shell is a **stable positioning
+The cabin scene's exterior is two registered layers -- `cabinSky` and
+`cabinMountainsGround` -- of one **1920×1620 master** that is never
+stretched. Each mode's `SceneLayout.exterior` (`ExteriorCrop`) places it at
+one uniform scale: desktop keeps the full art width at 1:1 and crops
+vertically; portrait keeps the full art height and crops horizontally. Both
+layers always render through the same crop. Back to front the environment is
+sky → rear clouds → mountains-ground (transparent above the peaks) → front
+clouds → birds / airplane → snow, all beneath the cabin.
+
+On desktop, the cabin's 640×720 logical shell is a **stable positioning
 surface** (`cabinArt.shellScale`) that never itself scales between closed
-and open -- only the artwork inside it resizes. Closed exterior art renders
-at `cabinArt.closedArtScale` (slightly smaller, centered via a 50%/50%
-transform-origin); open interior art always renders at exactly 100% of the
-shell. The click target and door hint live inside the same scaling exterior-art
-group, so they track the visible closed artwork rather than the larger
-shell. Portrait keeps the older, simpler model where the whole shell+art
+and open -- only the art group inside it resizes, from
+`cabinArt.closedArtScale` (noticeably smaller, centered via a 50%/50%
+transform-origin) to exactly 100% of the shell when open. The exterior,
+front wall and interior all live in that one art group so they stay
+registered through the cross-fade. The click target and door hint live
+inside it too, so they track the visible closed artwork rather than the
+larger shell. Portrait keeps the older, simpler model where the whole shell+art
 group scales together as one explicit closed/open pair
 (`cabinScale.closedScale` / `cabinScale.openScale`), since its current
 composition already looks right. On
@@ -48,8 +58,9 @@ desktop the title card and house sign are positioned independently of the
 cabin (stage-relative); on portrait they instead derive their Y from the
 cabin's own Y plus a fixed offset (`titleCardOffsetFromCabinY` /
 `houseSignOffsetFromCabinY`), so moving the portrait cabin moves them with
-it. Ambient clouds are environment objects, not cabin-local, and portrait
-renders them at an independent `cloudScale`.
+it. Ambient clouds are environment objects, not cabin-local, each placed in
+the `rear` or `front` layer (optionally flipped), and portrait renders them
+at an independent `cloudScale`.
 
 Nav arrows (Experience/Projects) are **viewport-fixed UI, not stage
 objects** — they're rendered by `ViewportNavArrows` as a sibling of the
@@ -59,7 +70,7 @@ so they never scale or shrink with the stage/cabin. Their shared
 closed/opening/open state comes from `CabinStateContext`, which is lifted
 above `SceneStage` so both the stage content and the viewport UI can read it.
 
-The cabin itself has its own **cabin-local 760×570 coordinate surface**
+The cabin itself has its own **cabin-local 640×720 coordinate surface**
 (`CABIN_WIDTH`/`CABIN_HEIGHT`, also in `src/lib/layout.ts`). Every interior
 prop (fireplace, gramophone, cat, UCI flag, contact frame, the door-hint
 position) is positioned once against that surface and is identical in both

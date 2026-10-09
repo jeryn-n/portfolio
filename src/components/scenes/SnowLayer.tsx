@@ -3,9 +3,10 @@
 import { useMemo, type CSSProperties } from "react";
 import { useCompositionMode } from "./CompositionModeContext";
 
-// Conservative on purpose: a steady, readable snowfall matters more than
-// density. Portrait gets fewer flakes over a taller stage.
-const FLAKE_COUNT = { desktop: 48, portrait: 26 };
+// Still conservative: a steady, readable snowfall matters more than
+// density, so this is a light fall, never a blizzard. Portrait gets fewer
+// flakes over a taller stage.
+const FLAKE_COUNT = { desktop: 60, portrait: 33 };
 
 // Sizes, drifts and durations are in STAGE pixels/seconds, so they are
 // scaled along with everything else by SceneStage. Portrait's 1080x1920

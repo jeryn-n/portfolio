@@ -21,6 +21,8 @@ interface AmbientCloudProps {
   // larger via PORTRAIT_LAYOUT.cloudScale, multiplied by each cloud's own
   // slight size variation.
   scale?: number;
+  // Mirrors the sprite horizontally (in place, around its own centre).
+  flip?: boolean;
   paused?: boolean;
 }
 
@@ -34,7 +36,7 @@ interface AmbientCloudProps {
 // and the wrap stays exact. Motion values write straight to the DOM without
 // re-rendering React, so this costs no state updates per frame, and Motion
 // folds the callback into its own single frame loop.
-export function AmbientCloud({ asset, x, y, speed, wrapWidth, scale = 1, paused = false }: AmbientCloudProps) {
+export function AmbientCloud({ asset, x, y, speed, wrapWidth, scale = 1, flip = false, paused = false }: AmbientCloudProps) {
   const travelled = useRef(0);
   const offset = useMotionValue(0);
 
@@ -48,9 +50,19 @@ export function AmbientCloud({ asset, x, y, speed, wrapWidth, scale = 1, paused 
 
   // Each copy is its own box at the asset's own size, so the default
   // centre transform-origin of the scale below means the same thing it did
-  // before this component looped -- the duplicate never shifts it.
+  // before this component looped -- the duplicate never shifts it. A flip is
+  // just a negative X scale around that same centre.
+  //
+  // maxWidth: Tailwind's preflight caps every <img> at 100% of its container,
+  // and the trailing copy is positioned a full wrap period past its
+  // container's edge -- without this it collapses to 0px wide and the loop
+  // pops back in instead of wrapping.
+  const scaleX = flip ? -scale : scale;
   const sprite = (
-    <ArtAsset asset={asset} style={scale === 1 ? undefined : { transform: `scale(${scale})` }} />
+    <ArtAsset
+      asset={asset}
+      style={{ maxWidth: "none", transform: scaleX === 1 ? undefined : `scale(${scaleX}, ${scale})` }}
+    />
   );
 
   return (

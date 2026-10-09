@@ -29,13 +29,13 @@ interface BirdProps {
 // dismantling it. For now the layer above is pointer-events: none and the
 // bird is decorative, so it announces nothing.
 //
-// Wing animation is deliberately absent -- a single travelling sprite is
-// enough until real multi-frame art exists.
+// Wing animation is deliberately absent -- birds are distant, static
+// silhouettes that simply drift across the sky.
 export function Bird({ spec, fading, onFinished }: BirdProps) {
   return (
     <div
-      className="bird-sprite"
-      // The element's own transform belongs to the `bird-fly` keyframes, so
+      className="flyer-sprite"
+      // The element's own transform belongs to the `flyer-fly` keyframes, so
       // the per-bird scale goes on the sprite inside it.
       style={
         {
@@ -43,15 +43,17 @@ export function Bird({ spec, fading, onFinished }: BirdProps) {
           top: spec.y,
           opacity: fading ? 0 : 1,
           animationDuration: `${spec.duration}s`,
-          "--bird-travel": `${spec.travel}px`,
-          "--bird-rise": `${spec.rise}px`,
+          "--flyer-travel": `${spec.travel}px`,
+          "--flyer-rise": `${spec.rise}px`,
         } as CSSProperties
       }
       onAnimationEnd={onFinished}
     >
+      {/* maxWidth: the bird starts at the stage's right edge, where
+          Tailwind's preflight `max-width: 100%` would collapse it to 0px. */}
       <ArtAsset
         asset={ASSETS.ambientBird}
-        style={{ transform: `scale(${spec.scale})`, transformOrigin: "50% 50%" }}
+        style={{ transform: `scale(${spec.scale})`, transformOrigin: "50% 50%", maxWidth: "none" }}
       />
     </div>
   );
