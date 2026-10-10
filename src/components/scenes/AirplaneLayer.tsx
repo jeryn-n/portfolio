@@ -10,6 +10,13 @@ import { useCompositionMode } from "./CompositionModeContext";
 const FIRST_FLIGHT_DELAY_MS = { min: 25000, max: 45000 };
 const GAP_MS = { min: 90000, max: 150000 };
 
+// Except that half of all visits get one right away: the first time the
+// cabin's environment comes alive, a coin flip decides whether the first
+// flight launches within the first few seconds (and is on screen by ~10s)
+// instead of after the usual delay.
+const EARLY_FLIGHT_CHANCE = 0.5;
+const EARLY_FLIGHT_DELAY_MS = { min: 1000, max: 6000 };
+
 // Long, slow crossings and a small scale -- it should read as cruising
 // altitude, not a flyby.
 const FLIGHT = {
@@ -17,9 +24,14 @@ const FLIGHT = {
   portrait: { minDuration: 38, maxDuration: 50, minScale: 0.24, maxScale: 0.3 },
 };
 
-// High sky only, as a fraction of stage height at the art's centre. Kept
-// above the birds' band (see BirdLayer), so a bird can never fly across it.
-const Y_BAND = { top: 0.03, bottom: 0.07 };
+// Low in the distance: just above the mountain peaks, roughly level with
+// the tallest one (stage y ~200 desktop, ~710 for the tallest peak in the
+// portrait crop). A fraction of stage height at the art's centre. It flies
+// behind the mountains, so it can at most slip behind a ridge.
+const Y_BAND = {
+  desktop: { top: 0.14, bottom: 0.185 },
+  portrait: { top: 0.335, bottom: 0.365 },
+};
 
 interface AirplaneFlight {
   id: number;
@@ -45,7 +57,7 @@ function createFlight(mode: "desktop" | "portrait", id: number): AirplaneFlight 
     // Left to right: the canvas starts one canvas-width off the left edge
     // and travels until it has fully cleared the right one.
     startX: -designWidth,
-    y: between(Y_BAND.top, Y_BAND.bottom) * height - designHeight / 2,
+    y: between(Y_BAND[mode].top, Y_BAND[mode].bottom) * height - designHeight / 2,
     travel: width + designWidth,
     rise: between(-15, 15),
     duration: between(flight.minDuration, flight.maxDuration),
@@ -60,7 +72,7 @@ interface AirplaneLayerProps {
   frozen: boolean;
 }
 
-// A rare, distant airplane crossing the high sky. Same approach as the
+// A rare, distant airplane crossing the sky above the peaks. Same approach as the
 // birds -- a randomised timer plus one CSS transform animation (the shared
 // `flyer-fly` keyframes) -- but there is only ever one, and it has no
 // interaction, so a single nullable flight is all the state it needs.
@@ -71,6 +83,8 @@ export function AirplaneLayer({ spawning, frozen }: AirplaneLayerProps) {
   const mode = useCompositionMode();
   const [flight, setFlight] = useState<AirplaneFlight | null>(null);
   const nextId = useRef(0);
+  // undefined: not rolled yet; null: no (or no longer an) early flight.
+  const earlyFlightAt = useRef<number | null | undefined>(undefined);
 
   useEffect(() => {
     if (!spawning) return;
@@ -79,6 +93,7 @@ export function AirplaneLayer({ spawning, frozen }: AirplaneLayerProps) {
 
     function schedule(delay: { min: number; max: number }) {
       timer = setTimeout(() => {
+        earlyFlightAt.current = null;
         // Still airborne from last time (only possible after a freeze)?
         // Leave it be and wait for the next gap.
         setFlight((current) => current ?? createFlight(mode, nextId.current++));
@@ -86,7 +101,19 @@ export function AirplaneLayer({ spawning, frozen }: AirplaneLayerProps) {
       }, between(delay.min, delay.max));
     }
 
-    schedule(FIRST_FLIGHT_DELAY_MS);
+    // Rolled once per page load, as a fixed launch time rather than a delay:
+    // if this effect restarts before then (Strict Mode's double run, or a
+    // freeze right after load), the early flight still keeps its slot.
+    if (earlyFlightAt.current === undefined) {
+      earlyFlightAt.current =
+        Math.random() < EARLY_FLIGHT_CHANCE
+          ? Date.now() + between(EARLY_FLIGHT_DELAY_MS.min, EARLY_FLIGHT_DELAY_MS.max)
+          : null;
+    }
+    const earlyIn = earlyFlightAt.current === null ? -1 : earlyFlightAt.current - Date.now();
+    earlyFlightAt.current = earlyIn >= 0 ? earlyFlightAt.current : null;
+
+    schedule(earlyIn >= 0 ? { min: earlyIn, max: earlyIn } : FIRST_FLIGHT_DELAY_MS);
     return () => clearTimeout(timer);
   }, [spawning, mode]);
 

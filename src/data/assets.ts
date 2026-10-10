@@ -7,10 +7,11 @@ export interface ArtAssetDef {
 }
 
 export const ASSETS = {
-  // Cabin exterior environment: two registered layers of one 1920x1620
-  // master. The mountains-ground layer is transparent above the peaks, so
-  // rear clouds can pass behind it. Both are cropped, never stretched -- see
-  // ExteriorCrop in src/lib/layout.ts.
+  // Cabin exterior environment: four registered layers of one 1920x1620
+  // master, back to front. The sky is opaque; the other three are
+  // transparent except where their artwork is, so clouds and flyers can sit
+  // between them. All four are cropped, never stretched -- see ExteriorCrop
+  // in src/lib/layout.ts.
   cabinSky: {
     id: "cabinSky",
     src: "/art/cabin/sky.png",
@@ -18,10 +19,24 @@ export const ASSETS = {
     designWidth: 1920,
     designHeight: 1620,
   },
-  cabinMountainsGround: {
-    id: "cabinMountainsGround",
-    src: "/art/cabin/mountains-ground.png",
-    label: "Mountains + Ground",
+  cabinMountains: {
+    id: "cabinMountains",
+    src: "/art/cabin/mountains.png",
+    label: "Mountains",
+    designWidth: 1920,
+    designHeight: 1620,
+  },
+  cabinFoothillsBackTrees: {
+    id: "cabinFoothillsBackTrees",
+    src: "/art/cabin/foothills-back-trees.png",
+    label: "Foothills + Back Trees",
+    designWidth: 1920,
+    designHeight: 1620,
+  },
+  cabinGroundFrontTrees: {
+    id: "cabinGroundFrontTrees",
+    src: "/art/cabin/ground-front-trees.png",
+    label: "Ground + Front Trees",
     designWidth: 1920,
     designHeight: 1620,
   },
@@ -109,20 +124,50 @@ export const ASSETS = {
     designHeight: 64,
   },
 
-  // Ambient
-  ambientCloud1: {
-    id: "ambientCloud1",
-    src: "/art/ambient/cloud-1.png",
-    label: "Ambient Cloud 1",
+  // Ambient clouds, by category: one very large rear cloud, two medium
+  // shapes, three small ones. These are the source canvas sizes; the cabin
+  // scene's cloudScale sets how big they render.
+  ambientCloud1Medium: {
+    id: "ambientCloud1Medium",
+    src: "/art/ambient/cloud-1-medium.png",
+    label: "Ambient Cloud 1 (Medium)",
     designWidth: 360,
     designHeight: 150,
   },
-  ambientCloud2: {
-    id: "ambientCloud2",
-    src: "/art/ambient/cloud-2.png",
-    label: "Ambient Cloud 2",
+  ambientCloud2VeryLarge: {
+    id: "ambientCloud2VeryLarge",
+    src: "/art/ambient/cloud-2-very-large.png",
+    label: "Ambient Cloud 2 (Very Large)",
     designWidth: 450,
     designHeight: 175,
+  },
+  ambientCloud3Medium: {
+    id: "ambientCloud3Medium",
+    src: "/art/ambient/cloud-3-medium.png",
+    label: "Ambient Cloud 3 (Medium)",
+    designWidth: 300,
+    designHeight: 100,
+  },
+  ambientCloud4Small: {
+    id: "ambientCloud4Small",
+    src: "/art/ambient/cloud-4-small.png",
+    label: "Ambient Cloud 4 (Small)",
+    designWidth: 300,
+    designHeight: 100,
+  },
+  ambientCloud5Small: {
+    id: "ambientCloud5Small",
+    src: "/art/ambient/cloud-5-small.png",
+    label: "Ambient Cloud 5 (Small)",
+    designWidth: 300,
+    designHeight: 100,
+  },
+  ambientCloud6Small: {
+    id: "ambientCloud6Small",
+    src: "/art/ambient/cloud-6-small.png",
+    label: "Ambient Cloud 6 (Small)",
+    designWidth: 300,
+    designHeight: 100,
   },
   // Bird and airplane art is drawn small in the middle of a 400x250 canvas;
   // the layers that fly them scale them down further to read as distant.
@@ -141,13 +186,16 @@ export const ASSETS = {
     designHeight: 250,
   },
 
-  // Experience
+  // Experience. The background is a 1920x1620 master, the sky directly above
+  // the cabin's -- cropped, never stretched (see src/lib/worldLayout.ts).
+  // cloud-1 is the only shell drawn so far; the scene reuses it for all
+  // three entries until cloud-2/3 arrive.
   experienceBackground: {
     id: "experienceBackground",
     src: "/art/experience/background.png",
     label: "Experience Background",
     designWidth: 1920,
-    designHeight: 1080,
+    designHeight: 1620,
   },
   experienceCloud1: {
     id: "experienceCloud1",
@@ -204,17 +252,23 @@ export const ASSETS = {
 
 export type AssetId = keyof typeof ASSETS;
 
-// Exactly what the CLOSED exterior needs in order to be shown: the sky and
-// mountains, the cabin's closed shell, the sign, the drifting clouds, and the
-// door hint. The initial loading screen waits for this list and nothing else
-// -- notably not the interior, and not the other two scenes.
+// Exactly what the CLOSED exterior needs in order to be shown: the four
+// environment layers, the cabin's closed shell, the sign, the drifting
+// clouds, and the door hint. The initial loading screen waits for this list
+// and nothing else -- notably not the interior, and not the other two scenes.
 export const ESSENTIAL_EXTERIOR_ASSETS: readonly AssetId[] = [
   "cabinSky",
-  "cabinMountainsGround",
+  "cabinMountains",
+  "cabinFoothillsBackTrees",
+  "cabinGroundFrontTrees",
   "cabinExterior",
   "houseSign",
-  "ambientCloud1",
-  "ambientCloud2",
+  "ambientCloud1Medium",
+  "ambientCloud2VeryLarge",
+  "ambientCloud3Medium",
+  "ambientCloud4Small",
+  "ambientCloud5Small",
+  "ambientCloud6Small",
   "uiExclamation",
 ];
 
@@ -233,8 +287,6 @@ export const SECONDARY_ASSETS: readonly AssetId[] = [
   "uciFlag",
   "experienceBackground",
   "experienceCloud1",
-  "experienceCloud2",
-  "experienceCloud3",
   "projectsBackground",
   "projectBoulder1",
   "projectBoulder2",

@@ -6,7 +6,7 @@ import { useCompositionMode } from "./CompositionModeContext";
 // Still conservative: a steady, readable snowfall matters more than
 // density, so this is a light fall, never a blizzard. Portrait gets fewer
 // flakes over a taller stage.
-const FLAKE_COUNT = { desktop: 60, portrait: 33 };
+const FLAKE_COUNT = { desktop: 72, portrait: 40 };
 
 // Sizes, drifts and durations are in STAGE pixels/seconds, so they are
 // scaled along with everything else by SceneStage. Portrait's 1080x1920
@@ -36,19 +36,33 @@ function between(min: number, max: number): number {
   return min + Math.random() * (max - min);
 }
 
+function shuffled(count: number): number[] {
+  const order = Array.from({ length: count }, (_, i) => i);
+  for (let i = count - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return order;
+}
+
+// Even coverage without a visible grid: the stage width is split into one
+// column per flake, and each fall into one phase slot per flake, and every
+// flake takes one column and one (shuffled) phase slot, jittered inside
+// both. Pure randomness leaves clumps and bare strips at these counts.
 function createFlakes(count: number, shape: (typeof FLAKE_SHAPE)["desktop"]): Flake[] {
+  const phases = shuffled(count);
   return Array.from({ length: count }, (_, id) => {
     const duration = between(shape.minDuration, shape.maxDuration);
     return {
       id,
-      leftPercent: Math.random() * 100,
+      leftPercent: ((id + between(0.15, 0.85)) / count) * 100,
       size: between(shape.minSize, shape.maxSize),
       drift: between(-MAX_DRIFT, MAX_DRIFT),
       duration,
       // A NEGATIVE delay starts the flake partway through its fall, so the
       // layer is already full of snow on the first frame instead of dropping
       // one synchronised curtain from the top.
-      delay: -Math.random() * duration,
+      delay: -((phases[id] + Math.random()) / count) * duration,
       opacity: between(0.35, 0.9),
     };
   });
@@ -73,9 +87,9 @@ interface SnowLayerProps {
 // client render, well after hydration. Nothing about the snow is ever part
 // of the server's HTML to disagree with.
 //
-// Layering is handled by WHERE the cabin scene mounts this, not by masking:
-// it sits inside the environment group, behind the cabin artwork, so an open
-// cabin's interior is never snowed on. See CabinScene.
+// Layering is handled by the cabin scene: it mounts this in front of the
+// cabin, and masks it out over the open cabin so the interior is never
+// snowed on. See snowVariants in CabinScene.
 export function SnowLayer({ enabled, frozen }: SnowLayerProps) {
   const mode = useCompositionMode();
 

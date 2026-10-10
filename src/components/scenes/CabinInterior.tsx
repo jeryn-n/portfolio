@@ -8,7 +8,7 @@ import { useSiteUI } from "@/components/ui/SiteUIProvider";
 import { EmailPopover } from "@/components/ui/EmailPopover";
 import { ASSETS, type ArtAssetDef } from "@/data/assets";
 import { SITE } from "@/data/site";
-import { CABIN_INTERIOR_LAYOUT } from "@/lib/layout";
+import { CABIN_INTERIOR_LAYOUT, CABIN_INTERIOR_PROP_SCALE } from "@/lib/layout";
 import { ExclamationMark, singleBouncePattern } from "./ExclamationMark";
 
 // Total time the gramophone hint stays on screen before it auto-dismisses.
@@ -29,10 +29,21 @@ const {
   contactFrame: contactLayout,
 } = CABIN_INTERIOR_LAYOUT;
 
+// Props render a little under their design size (an explicit width/height,
+// not a transform, so the hover/tap scale animations stay untouched).
+function propSize(asset: ArtAssetDef) {
+  return {
+    width: asset.designWidth * CABIN_INTERIOR_PROP_SCALE,
+    height: asset.designHeight * CABIN_INTERIOR_PROP_SCALE,
+  };
+}
+
 const gramophone = ASSETS.gramophone;
+const gramophoneSize = propSize(gramophone);
 const gramophoneHintX =
-  grammyLayout.x + gramophone.designWidth / 2 - 14 + gramophone.designWidth * GRAMOPHONE_HINT_SHIFT.x;
-const gramophoneHintY = grammyLayout.y - 34 + gramophone.designHeight * GRAMOPHONE_HINT_SHIFT.y;
+  grammyLayout.x + gramophoneSize.width / 2 - 14 + gramophoneSize.width * GRAMOPHONE_HINT_SHIFT.x;
+const gramophoneHintY = grammyLayout.y - 34 + gramophoneSize.height * GRAMOPHONE_HINT_SHIFT.y;
+const contactSize = propSize(ASSETS.contactFrame);
 
 interface InteriorHotspotProps {
   asset: ArtAssetDef;
@@ -54,9 +65,9 @@ function InteriorHotspot({ asset, x, y, label, isOpen, onClick }: InteriorHotspo
       whileHover={isOpen ? HOTSPOT_HOVER : undefined}
       whileTap={isOpen ? HOTSPOT_TAP : undefined}
       className={`absolute border-0 bg-transparent p-0 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
-      style={{ left: x, top: y, width: asset.designWidth, height: asset.designHeight }}
+      style={{ left: x, top: y, ...propSize(asset) }}
     >
-      <ArtAsset asset={asset} />
+      <ArtAsset asset={asset} style={propSize(asset)} />
     </motion.button>
   );
 }
@@ -79,18 +90,13 @@ function GramophoneHotspot({ isOpen, isPlaying, onClick }: GramophoneHotspotProp
       whileHover={isOpen ? HOTSPOT_HOVER : undefined}
       whileTap={isOpen ? HOTSPOT_TAP : undefined}
       className={`absolute border-0 bg-transparent p-0 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
-      style={{
-        left: grammyLayout.x,
-        top: grammyLayout.y,
-        width: gramophone.designWidth,
-        height: gramophone.designHeight,
-      }}
+      style={{ left: grammyLayout.x, top: grammyLayout.y, ...gramophoneSize }}
     >
       <motion.div
         animate={isPlaying ? { rotate: [0, -2, 2, 0] } : { rotate: 0 }}
         transition={isPlaying ? { duration: 1.4, repeat: Infinity, ease: "easeInOut" } : { duration: 0.2 }}
       >
-        <ArtAsset asset={gramophone} />
+        <ArtAsset asset={gramophone} style={gramophoneSize} />
       </motion.div>
     </motion.button>
   );
@@ -120,10 +126,10 @@ function CatHotspot({ isOpen }: { isOpen: boolean }) {
       whileHover={isOpen ? HOTSPOT_HOVER : undefined}
       whileTap={isOpen ? HOTSPOT_TAP : undefined}
       className={`absolute border-0 bg-transparent p-0 ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
-      style={{ left: catLayout.x, top: catLayout.y, width: ASSETS.cat.designWidth, height: ASSETS.cat.designHeight }}
+      style={{ left: catLayout.x, top: catLayout.y, ...propSize(ASSETS.cat) }}
     >
       <motion.div animate={controls}>
-        <ArtAsset asset={ASSETS.cat} />
+        <ArtAsset asset={ASSETS.cat} style={propSize(ASSETS.cat)} />
       </motion.div>
     </motion.button>
   );
@@ -187,7 +193,7 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
     toggleMusic();
   }
 
-  const emailAnchorX = contactLayout.x + ASSETS.contactFrame.designWidth / 2;
+  const emailAnchorX = contactLayout.x + contactSize.width / 2;
   const emailAnchorY = contactLayout.y - 10;
 
   return (
@@ -209,14 +215,9 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
 
       <div
         className="absolute"
-        style={{
-          left: contactLayout.x,
-          top: contactLayout.y,
-          width: ASSETS.contactFrame.designWidth,
-          height: ASSETS.contactFrame.designHeight,
-        }}
+        style={{ left: contactLayout.x, top: contactLayout.y, ...contactSize }}
       >
-        <ArtAsset asset={ASSETS.contactFrame} />
+        <ArtAsset asset={ASSETS.contactFrame} style={contactSize} />
         <div className="absolute inset-0 flex items-center justify-center gap-8">
           <ContactButton
             label="Email"

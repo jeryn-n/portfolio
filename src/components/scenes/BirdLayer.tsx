@@ -24,13 +24,13 @@ const FADE_OUT_MS = 350;
 // canvas), and are slow on purpose: distant birds drift rather than dart.
 // Scale shrinks the 400x250 art canvas down to a far-off silhouette.
 const FLIGHT = {
-  desktop: { minDuration: 30, maxDuration: 40, minScale: 0.32, maxScale: 0.48 },
-  portrait: { minDuration: 24, maxDuration: 32, minScale: 0.4, maxScale: 0.56 },
+  desktop: { minDuration: 30, maxDuration: 40, minScale: 0.24, maxScale: 0.36 },
+  portrait: { minDuration: 24, maxDuration: 32, minScale: 0.3, maxScale: 0.42 },
 };
 
 // Upper-to-mid sky, as a fraction of stage height -- never down at ground
-// level. Measured at the art's centre, not the canvas top. Starts just
-// below the airplane's band (see AirplaneLayer) so the two never cross.
+// level. Measured at the art's centre, not the canvas top. (Birds are
+// currently switched off -- see BIRDS_ENABLED in CabinScene.)
 const Y_BAND = { top: 0.13, bottom: 0.32 };
 
 function between(min: number, max: number): number {

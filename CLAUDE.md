@@ -33,34 +33,55 @@ mode-specific `SceneLayout` (`src/lib/layout.ts`) for scene-level placement
 (cabin position, sign, title card, clouds) — it's one component and one
 state machine reused across both modes, not two.
 
-The cabin scene's exterior is two registered layers -- `cabinSky` and
-`cabinMountainsGround` -- of one **1920×1620 master** that is never
-stretched. Each mode's `SceneLayout.exterior` (`ExteriorCrop`) places it at
-one uniform scale: desktop keeps the full art width at 1:1 and crops
-vertically; portrait keeps the full art height and crops horizontally. Both
-layers always render through the same crop. Back to front the environment is
-sky → rear clouds → mountains-ground (transparent above the peaks) → front
-clouds → birds / airplane → snow, all beneath the cabin.
+The cabin scene's exterior is four registered layers -- `cabinSky`,
+`cabinMountains`, `cabinFoothillsBackTrees`, `cabinGroundFrontTrees` -- of
+one **1920×1620 master** that is never stretched. Each mode's
+`SceneLayout.exterior` (`ExteriorCrop`) places it at one uniform scale:
+desktop keeps the full art width at 1:1 and crops vertically; portrait keeps
+the full art height and crops horizontally. All four layers always render
+through the same crop. Back to front: sky → airplane → all clouds →
+mountains (+ birds) → foothills + back trees → ground + front trees →
+world darkness overlay → cabin → snow → cabin UI. Birds and the airplane
+are currently disabled (`BIRDS_ENABLED` / `AIRPLANE_ENABLED` in
+`CabinScene`), code kept. The darkness overlay is ONE layer in
+`WorldSceneController` over the whole Experience/Cabin/Projects strip (20%
+only while the open cabin is the scene, cleared early in travel away,
+restored as travel lands); `CabinScene` portals its foreground into a layer
+above it so the cabin itself is never dimmed. The Experience background is a
+second 1920×1620 master, the sky directly above the cabin's, cropped the
+same way (desktop: its bottom 1080 rows; portrait: the cabin's portrait
+crop) -- see `src/lib/worldLayout.ts`. On desktop the cabin window starts at
+its art row 320, so Experience parks that much further up and the cabin's
+environment clip extends upward to show its real sky rows 0-320 as the
+bridge during travel (`getSkyBridgeHeight`; zero on portrait). Experience
+entries are placed by slug and sized directly (no transforms). Each terrain layer is its own
+parallax depth (sky ×1.02 … ground ×1.08) zooming from the cabin's base
+(`getCabinBaseY`) as the cabin opens. Snow falls in front of the closed
+cabin and is masked out over the open cabin's box (`getOpenCabinBox`).
 
-On desktop, the cabin's 640×720 logical shell is a **stable positioning
-surface** (`cabinArt.shellScale`) that never itself scales between closed
-and open -- only the art group inside it resizes, from
-`cabinArt.closedArtScale` (noticeably smaller, centered via a 50%/50%
-transform-origin) to exactly 100% of the shell when open. The exterior,
-front wall and interior all live in that one art group so they stay
-registered through the cross-fade. The click target and door hint live
-inside it too, so they track the visible closed artwork rather than the
-larger shell. Portrait keeps the older, simpler model where the whole shell+art
-group scales together as one explicit closed/open pair
-(`cabinScale.closedScale` / `cabinScale.openScale`), since its current
-composition already looks right. On
+In both modes the cabin grows from a **fixed base** (bottom-center
+transform-origin), so the opening zoom expands it upward and outward and
+never pushes it down toward the Projects arrow. On desktop, the cabin's
+640×720 logical shell is a **stable positioning surface**
+(`cabinArt.shellScale`) that never itself scales between closed and open --
+only the art group inside it resizes, from `cabinArt.closedArtScale` to
+exactly 100% of the shell when open. The exterior, front wall and interior
+all live in that one art group so they stay registered through the
+cross-fade. The click target and door hint live inside it too, so they
+track the visible closed artwork rather than the larger shell. Portrait
+keeps the older, simpler model where the whole shell+art group scales
+together as one explicit closed/open pair (`cabinScale.closedScale` /
+`cabinScale.openScale`). On
 desktop the title card and house sign are positioned independently of the
 cabin (stage-relative); on portrait they instead derive their Y from the
 cabin's own Y plus a fixed offset (`titleCardOffsetFromCabinY` /
 `houseSignOffsetFromCabinY`), so moving the portrait cabin moves them with
-it. Ambient clouds are environment objects, not cabin-local, each placed in
-the `rear` or `front` layer (optionally flipped), and portrait renders them
-at an independent `cloudScale`.
+it. Ambient clouds are environment objects, not cabin-local, rendered at
+each mode's `cloudScale`, all drifting at one shared `cloudSpeed`. They
+come in three categories (very large / medium / small, `CLOUD_ASSETS`), each
+with a count and a vertical band per mode; `cloudField.ts` scatters them
+once per load so their artwork never overlaps (wrap included), and the
+shared speed keeps it that way.
 
 Nav arrows (Experience/Projects) are **viewport-fixed UI, not stage
 objects** — they're rendered by `ViewportNavArrows` as a sibling of the

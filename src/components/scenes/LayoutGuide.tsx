@@ -19,6 +19,7 @@ interface EnvironmentStatus {
   clouds: string;
   birds: string;
   airplane: string;
+  parallax: string;
 }
 
 interface LayoutGuideProps {
@@ -57,15 +58,16 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
       : { x: layout.houseSignX, y: layout.cabinY + layout.houseSignOffsetFromCabinY };
 
   // The shell as actually drawn on the stage: desktop scales it once by
-  // shellScale, portrait by its closed scale -- both from the top-center.
+  // shellScale from its top-center; portrait draws the whole group at its
+  // closed scale, from its bottom-center.
   const shellScale = layout.mode === "desktop" ? layout.cabinArt.shellScale : layout.cabinScale.closedScale;
   const shellW = CABIN_WIDTH * shellScale;
   const shellH = CABIN_HEIGHT * shellScale;
   const shellX = cabinX + (CABIN_WIDTH - shellW) / 2;
-  const shellY = cabinY;
+  const shellY = layout.mode === "desktop" ? cabinY : cabinY + CABIN_HEIGHT - shellH;
 
-  // Desktop: closed art group, centered in the stable shell. Portrait: the
-  // whole group at its open scale, also from the top-center.
+  // Desktop: closed art group, bottom-anchored in the stable shell.
+  // Portrait: the whole group at its open scale, also from the bottom-center.
   const closedArt =
     layout.mode === "desktop"
       ? {
@@ -78,8 +80,11 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
       ? { w: CABIN_WIDTH * layout.cabinScale.openScale, h: CABIN_HEIGHT * layout.cabinScale.openScale }
       : null;
 
-  const rearClouds = layout.clouds.filter((cloud) => cloud.layer === "rear").length;
-  const frontClouds = layout.clouds.length - rearClouds;
+  const cloudBands = [
+    { kind: "very large", band: layout.clouds.large, color: "#a78bfa" },
+    { kind: "medium", band: layout.clouds.medium, color: "#38bdf8" },
+    { kind: "small", band: layout.clouds.small, color: "#f0abfc" },
+  ];
 
   return (
     <>
@@ -88,6 +93,11 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
         <rect x={0} y={0} width={stageW} height={stageH} fill="none" stroke="#00ff00" strokeWidth="2" opacity="0.3" />
         <line x1={stageW / 2} y1={0} x2={stageW / 2} y2={stageH} stroke="#00ff00" strokeWidth="1" opacity="0.2" strokeDasharray="4,4" />
         <line x1={0} y1={stageH / 2} x2={stageW} y2={stageH / 2} stroke="#00ff00" strokeWidth="1" opacity="0.2" strokeDasharray="4,4" />
+
+        {/* WORLD/STAGE: each cloud category's band for cloud centres */}
+        {cloudBands.map(({ kind, band, color }) => (
+          <rect key={kind} x={0} y={band.top} width={stageW} height={band.bottom - band.top} fill="none" stroke={color} strokeWidth="1" opacity="0.45" strokeDasharray="10,6" />
+        ))}
 
         {/* WORLD/STAGE: cabin logical shell -- the stable 640x720 positioning
             surface. On desktop this never scales between closed/open; only
@@ -102,7 +112,7 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
         {closedArt && (
           <rect
             x={shellX + (shellW - closedArt.w) / 2}
-            y={shellY + (shellH - closedArt.h) / 2}
+            y={shellY + shellH - closedArt.h}
             width={closedArt.w}
             height={closedArt.h}
             fill="none"
@@ -112,11 +122,11 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
           />
         )}
         {/* WORLD/STAGE: portrait open bounds (dashed) -- the whole group
-            grows to this from the top-center as the cabin opens. */}
+            grows to this from the bottom-center as the cabin opens. */}
         {portraitOpen && (
           <rect
             x={cabinX + (CABIN_WIDTH - portraitOpen.w) / 2}
-            y={cabinY}
+            y={cabinY + CABIN_HEIGHT - portraitOpen.h}
             width={portraitOpen.w}
             height={portraitOpen.h}
             fill="none"
@@ -150,20 +160,25 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
         <div className="absolute left-1 top-1 space-y-0.5">
           <div>{modeLabel}</div>
           <div className="text-emerald-300/80">
-            EXTERIOR -- sky layer + mountains-ground layer, {EXTERIOR_ART_WIDTH}×{EXTERIOR_ART_HEIGHT} master, one shared crop:
+            EXTERIOR -- sky / mountains / foothills + back trees / ground + front trees, {EXTERIOR_ART_WIDTH}×{EXTERIOR_ART_HEIGHT} master, one shared crop:
             ×{layout.exterior.scale.toFixed(3)} at ({Math.round(layout.exterior.x)}, {Math.round(layout.exterior.y)})
           </div>
           <div className="text-emerald-300/80">
-            CLOUDS -- {rearClouds} rear (behind mountains) / {frontClouds} front
+            CLOUD BANDS (dashed, centre Y; ×{layout.cloudScale} render scale, {layout.cloudSpeed} px/s) --{" "}
+            {cloudBands.map(({ kind, band, color }) => (
+              <span key={kind} style={{ color }}>
+                {band.count} {kind} y {band.top}-{band.bottom};{" "}
+              </span>
+            ))}
           </div>
           {layout.mode === "desktop" ? (
             <>
               <div className="text-yellow-300/80">CABIN LOGICAL SHELL {CABIN_WIDTH}×{CABIN_HEIGHT} -- stable, shellScale {layout.cabinArt.shellScale}</div>
-              <div className="text-blue-400/80">CABIN ART GROUP (exterior + front wall + interior) -- closed {Math.round(layout.cabinArt.closedArtScale * 100)}% → open 100% of shell, centered</div>
+              <div className="text-blue-400/80">CABIN ART GROUP (exterior + front wall + interior) -- closed {Math.round(layout.cabinArt.closedArtScale * 100)}% → open 100% of shell, bottom-anchored</div>
             </>
           ) : (
             <div className="text-yellow-300/80">
-              WORLD/STAGE -- cabin {CABIN_WIDTH}×{CABIN_HEIGHT}, closed scale {layout.cabinScale.closedScale} / open scale {layout.cabinScale.openScale}
+              WORLD/STAGE -- cabin {CABIN_WIDTH}×{CABIN_HEIGHT}, closed scale {layout.cabinScale.closedScale} / open scale {layout.cabinScale.openScale}, bottom-anchored
             </div>
           )}
           {layout.mode === "portrait" && (
@@ -174,7 +189,6 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
               <div className="text-cyan-300/80">
                 sign Y = cabinY ({cabinY}) + ({layout.houseSignOffsetFromCabinY}) = {cabinY + layout.houseSignOffsetFromCabinY}
               </div>
-              <div className="text-cyan-300/80">cloud scale ×{layout.cloudScale} (independent of cabin)</div>
             </>
           )}
           <div className="text-magenta-400/80">CABIN-LOCAL -- interior props + door hint (magenta)</div>
@@ -182,9 +196,10 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
           {environment && (
             <>
               <div className="text-white/70">Snow: {environment.snow}</div>
-              <div className="text-white/70">Cloud speed: {environment.clouds}</div>
+              <div className="text-white/70">Clouds: {environment.clouds}</div>
               <div className="text-white/70">Bird spawning: {environment.birds}</div>
               <div className="text-white/70">Airplane spawning: {environment.airplane}</div>
+              <div className="text-white/70">Opening parallax: {environment.parallax}</div>
             </>
           )}
         </div>

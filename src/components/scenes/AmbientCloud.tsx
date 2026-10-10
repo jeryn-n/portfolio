@@ -17,9 +17,8 @@ interface AmbientCloudProps {
   // width, so a copy enters the right edge exactly as the original leaves the
   // left.
   wrapWidth: number;
-  // Clouds are environment objects, not cabin-local -- portrait renders them
-  // larger via PORTRAIT_LAYOUT.cloudScale, multiplied by each cloud's own
-  // slight size variation.
+  // Clouds are environment objects, not cabin-local -- each mode's
+  // cloudScale, multiplied by each cloud's own slight size variation.
   scale?: number;
   // Mirrors the sprite horizontally (in place, around its own centre).
   flip?: boolean;
