@@ -219,13 +219,15 @@ export const ASSETS = {
     designHeight: 350,
   },
 
-  // Projects
+  // Projects. The background is a 1920x1620 master, cropped, never
+  // stretched (see src/lib/worldLayout.ts). boulder-1 is the only shell
+  // drawn so far; the scene reuses it for all three entries.
   projectsBackground: {
     id: "projectsBackground",
     src: "/art/projects/background.png",
     label: "Projects Background",
     designWidth: 1920,
-    designHeight: 1080,
+    designHeight: 1620,
   },
   projectBoulder1: {
     id: "projectBoulder1",
@@ -289,8 +291,6 @@ export const SECONDARY_ASSETS: readonly AssetId[] = [
   "experienceCloud1",
   "projectsBackground",
   "projectBoulder1",
-  "projectBoulder2",
-  "projectBoulder3",
 ];
 
 export function assetSources(ids: readonly AssetId[]): string[] {

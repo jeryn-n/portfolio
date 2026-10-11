@@ -9,6 +9,9 @@ interface MediaFrameProps {
   objectPosition?: string;
   active?: boolean;
   className?: string;
+  // A solid, slightly rounded border in place of the dashed wireframe one,
+  // px.
+  border?: { color: string; width: number; radius: number };
 }
 
 // A 3:2 preview frame for data-driven portfolio media (arbitrary paths, not
@@ -17,12 +20,15 @@ interface MediaFrameProps {
 // placeholder in the same bounds -- never a broken-image icon. The frame
 // itself never scales; only the image inside it zooms slightly while
 // `active`, staying clipped by the frame's rounded, overflow-hidden bounds.
-export function MediaFrame({ src, alt, objectPosition = "center", active = false, className }: MediaFrameProps) {
+export function MediaFrame({ src, alt, objectPosition = "center", active = false, className, border }: MediaFrameProps) {
   const [failed, setFailed] = useState(false);
 
   return (
     <div
-      className={`relative aspect-[3/2] w-full overflow-hidden rounded border border-dashed border-wireframe-border bg-wireframe-fill ${className ?? ""}`}
+      className={`relative aspect-[3/2] w-full overflow-hidden bg-wireframe-fill ${
+        border ? "border-solid" : "rounded border border-dashed border-wireframe-border"
+      } ${className ?? ""}`}
+      style={border ? { borderColor: border.color, borderWidth: border.width, borderRadius: border.radius } : undefined}
     >
       {!failed ? (
         <motion.img

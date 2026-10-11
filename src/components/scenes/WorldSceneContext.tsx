@@ -20,6 +20,10 @@ interface GoToOptions {
   // route). Adjacency doesn't apply to these: it constrains animated travel
   // through the cabin hub, not naming a destination outright.
   instant?: boolean;
+  // With `instant`: still push a history entry, as animated travel does --
+  // for an instant jump made on the homepage itself (the menu crossing
+  // Experience<->Projects), where no route change records it.
+  recordHistory?: boolean;
 }
 
 interface WorldSceneContextValue {
@@ -100,7 +104,10 @@ export function WorldSceneProvider({ children }: { children: ReactNode }) {
       setScene(target);
       sceneRef.current = target;
 
-      if (options.instant) return;
+      if (options.instant) {
+        if (options.recordHistory && !options.fromHistory) pushSceneHistory(target);
+        return;
+      }
 
       playSfx("swipe");
 
@@ -122,7 +129,9 @@ export function WorldSceneProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function handlePopState() {
       const target = sceneFromHash(window.location.hash) ?? "cabin";
-      goTo(target, { fromHistory: true });
+      // Back/Forward across an instant Experience<->Projects jump is instant
+      // too, rather than travelling all the way through the cabin.
+      goTo(target, { fromHistory: true, instant: !isAdjacentMove(sceneRef.current, target) });
     }
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);

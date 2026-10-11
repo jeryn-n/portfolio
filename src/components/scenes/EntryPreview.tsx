@@ -2,7 +2,7 @@
 
 import { motion } from "motion/react";
 import Link from "next/link";
-import { useRef, useState, type MouseEvent, type PointerEvent } from "react";
+import { useRef, useState, type MouseEvent, type PointerEvent, type ReactNode } from "react";
 import { ArtAsset } from "@/components/art/ArtAsset";
 import { MediaFrame } from "@/components/art/MediaFrame";
 import type { ArtAssetDef } from "@/data/assets";
@@ -33,6 +33,8 @@ interface EntryPreviewProps {
   mediaOffsetY?: number;
   textOffsetY?: number;
   taglineOffsetY?: number;
+  // Solid border colour for the preview frame.
+  frameColor?: string;
 }
 
 // How far the pointer may travel between press and release and still count as
@@ -41,6 +43,26 @@ interface EntryPreviewProps {
 // browsers still fire a click on the anchor afterwards, so the anchor
 // cancels its own default when the pointer clearly moved.
 const TAP_SLOP = 12;
+
+// One line's solid, rounded box in the text highlight layer, in the shell's
+// opposite tone. It's padded out with matching negative side margins, so the
+// copy wraps exactly like the real text it sits behind.
+function HighlightLine({ rgb, scale, children }: { rgb: string; scale: number; children: ReactNode }) {
+  const pad = 8 * scale;
+  return (
+    <span
+      className="[-webkit-box-decoration-break:clone] [box-decoration-break:clone]"
+      style={{
+        backgroundColor: `rgb(${rgb})`,
+        borderRadius: 6 * scale,
+        padding: `${3 * scale}px ${pad}px`,
+        margin: `0 ${-pad}px`,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
 
 // The cloud/boulder shell is a purely decorative backdrop: it sits outside
 // the hit target, never animates, and is hidden from assistive tech. Only the
@@ -61,13 +83,19 @@ export function EntryPreview({
   mediaOffsetY = 0,
   textOffsetY = 0,
   taglineOffsetY = textOffsetY,
+  frameColor,
 }: EntryPreviewProps) {
   const [active, setActive] = useState(false);
   const pressOrigin = useRef<{ x: number; y: number } | null>(null);
   const s = contentScale;
   const t = textScale;
-  const textColor = tone === "dark" ? "text-ink" : "text-paper";
-  const subTextColor = tone === "dark" ? "text-ink-soft" : "text-paper";
+  // Dark text is a touch lighter and bluer than ink, still well contrasted
+  // against the light clouds.
+  const textColor = tone === "dark" ? "text-[#173b66]" : "text-paper";
+  const subTextColor = tone === "dark" ? "text-[#24507f]" : "text-paper";
+  // #ecf6ff behind dark text, #48587f behind light text.
+  const highlightRgb = tone === "dark" ? "236, 246, 255" : "72, 88, 127";
+  const highlightOpacity = tone === "dark" ? 0.4 : 0.5;
 
   function handlePointerDown(event: PointerEvent<HTMLAnchorElement>) {
     pressOrigin.current = { x: event.clientX, y: event.clientY };
@@ -135,25 +163,53 @@ export function EntryPreview({
                 alt={entry.title}
                 objectPosition={entry.displayImagePosition}
                 active={active}
+                border={frameColor ? { color: frameColor, width: 4 * s, radius: 10 * s } : undefined}
               />
             </div>
             {/* text-sm / text-xs / mt-2, scaled by textScale. */}
-            <motion.h3
-              className={`relative font-bold uppercase tracking-wide ${textColor}`}
-              style={{ top: textOffsetY, marginTop: 8 * t, fontSize: 14 * t, lineHeight: `${20 * t}px` }}
-              animate={{ opacity: active ? 1 : 0.85, scale: active ? 1.02 : 1 }}
-              transition={{ duration: 0.18 }}
-            >
-              {entry.title}
-            </motion.h3>
-            <motion.p
-              className={`relative ${subTextColor}`}
-              style={{ top: taglineOffsetY, fontSize: 12 * t, lineHeight: `${16 * t}px` }}
-              animate={{ opacity: active ? 0.95 : tone === "dark" ? 0.85 : 0.7 }}
-              transition={{ duration: 0.18 }}
-            >
-              {entry.tagline}
-            </motion.p>
+            <div className="relative" style={{ marginTop: 8 * t }}>
+              {/* The text highlight: an invisible copy of the title and
+                  tagline whose lines carry solid rounded backgrounds. The
+                  whole layer is blurred and faded as one, so it reads as a
+                  soft shadow, and where two lines' boxes overlap the
+                  shadow doesn't get any darker. It moves with the entry on
+                  hover but doesn't otherwise change. */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 select-none text-transparent"
+                style={{ filter: `blur(${7 * t}px)`, opacity: highlightOpacity }}
+              >
+                <div
+                  className="relative font-bold uppercase tracking-wide"
+                  style={{ top: textOffsetY, fontSize: 14 * t, lineHeight: `${20 * t}px` }}
+                >
+                  <HighlightLine rgb={highlightRgb} scale={t}>
+                    {entry.title}
+                  </HighlightLine>
+                </div>
+                <div className="relative" style={{ top: taglineOffsetY, fontSize: 12 * t, lineHeight: `${16 * t}px` }}>
+                  <HighlightLine rgb={highlightRgb} scale={t}>
+                    {entry.tagline}
+                  </HighlightLine>
+                </div>
+              </div>
+              <motion.h3
+                className={`relative font-bold uppercase tracking-wide ${textColor}`}
+                style={{ top: textOffsetY, fontSize: 14 * t, lineHeight: `${20 * t}px` }}
+                animate={{ opacity: active ? 1 : 0.85, scale: active ? 1.02 : 1 }}
+                transition={{ duration: 0.18 }}
+              >
+                {entry.title}
+              </motion.h3>
+              <motion.p
+                className={`relative ${subTextColor}`}
+                style={{ top: taglineOffsetY, fontSize: 12 * t, lineHeight: `${16 * t}px` }}
+                animate={{ opacity: active ? 0.95 : tone === "dark" ? 0.85 : 0.7 }}
+                transition={{ duration: 0.18 }}
+              >
+                {entry.tagline}
+              </motion.p>
+            </div>
           </motion.div>
         </Link>
       </div>

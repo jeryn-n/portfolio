@@ -74,6 +74,7 @@ export function ExperienceScene() {
               textOffsetY={placement.textOffsetY}
               taglineOffsetY={placement.taglineOffsetY}
               tone="dark"
+              frameColor="#77a9db"
             />
             {debug && (
               <>

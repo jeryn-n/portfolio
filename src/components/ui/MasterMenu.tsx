@@ -23,7 +23,7 @@ const MENU_ITEMS: Array<{ label: string; kind: MenuItemKind }> = [
 // travel, and on a portfolio detail route they are client-side navigations
 // back to the homepage addressed at the right scene.
 export function MasterMenu() {
-  const { hasEnteredCabin, menuOpen, toggleMenu, closeMenu, openPanel } = useSiteUI();
+  const { hasEnteredCabin, menuOpen, toggleMenu, closeMenu, openPanel, activePanel, emailPopoverOpen } = useSiteUI();
   const { scene, goTo } = useWorldScene();
   const pathname = usePathname();
   const router = useRouter();
@@ -34,16 +34,23 @@ export function MasterMenu() {
     function handlePointerDown(event: PointerEvent) {
       if (!containerRef.current?.contains(event.target as Node)) closeMenu();
     }
-    function handleKey(event: KeyboardEvent) {
-      if (event.key === "Escape") closeMenu();
-    }
     window.addEventListener("pointerdown", handlePointerDown);
-    window.addEventListener("keydown", handleKey);
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-      window.removeEventListener("keydown", handleKey);
-    };
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
   }, [menuOpen, closeMenu]);
+
+  // Escape toggles the menu: it opens it, and closes it again. While a panel
+  // or the email popover is open, Escape belongs to that instead (each closes
+  // itself on the same key press), so the menu stays put.
+  useEffect(() => {
+    if (!hasEnteredCabin) return;
+    function handleKey(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      if (menuOpen) closeMenu();
+      else if (!activePanel && !emailPopoverOpen) toggleMenu();
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [hasEnteredCabin, menuOpen, activePanel, emailPopoverOpen, closeMenu, toggleMenu]);
 
   if (!hasEnteredCabin) return null;
 
@@ -52,16 +59,13 @@ export function MasterMenu() {
   // Homepage: deliberate world travel. These call goTo directly rather than
   // going through useSceneNavigation's `navigate` (which gates on the menu
   // being closed, since that gate exists to stop ambient wheel/swipe/keyboard
-  // input while the menu owns focus). Crossing Experience<->Projects is never
-  // a single jump: it always lands on Cabin first, exactly like every other
-  // scene-travel path.
+  // input while the menu owns focus). Crossing Experience<->Projects skips
+  // travel altogether: the menu jumps straight to the other scene, with no
+  // transition, recording a history entry like any other move.
   function travelOnHomepage(target: Scene) {
-    if (target === "cabin") {
-      if (scene !== "cabin") goTo("cabin");
-      return;
-    }
-    if (scene === "cabin") goTo(target);
-    else if (scene !== target) goTo("cabin");
+    if (scene === target) return;
+    if (target === "cabin" || scene === "cabin") goTo(target);
+    else goTo(target, { instant: true, recordHistory: true });
   }
 
   // Detail routes: the WorldSceneController isn't mounted, so there is no
@@ -105,11 +109,13 @@ export function MasterMenu() {
         aria-expanded={menuOpen}
         onClick={toggleMenu}
         whileTap={{ scale: 0.92 }}
-        className="flex h-10 w-10 flex-col items-center justify-center gap-1 border-2 border-ink-soft/70 bg-paper/80 shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-soft"
+        className="flex h-10 w-10 flex-col items-center justify-center gap-[5px] rounded-md drop-shadow-[0_1px_2px_rgba(11,29,51,0.45)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper"
       >
-        <span aria-hidden="true" className="block h-0.5 w-5 bg-ink-soft" />
-        <span aria-hidden="true" className="block h-0.5 w-5 bg-ink-soft" />
-        <span aria-hidden="true" className="block h-0.5 w-5 bg-ink-soft" />
+        {/* Three plain white rounded bars, no frame. The soft drop shadow
+            keeps them visible over snow, clouds and the light detail pages. */}
+        <span aria-hidden="true" className="block h-[3px] w-6 rounded-full bg-white" />
+        <span aria-hidden="true" className="block h-[3px] w-6 rounded-full bg-white" />
+        <span aria-hidden="true" className="block h-[3px] w-6 rounded-full bg-white" />
       </motion.button>
 
       <AnimatePresence>

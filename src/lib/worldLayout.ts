@@ -1,6 +1,6 @@
 import { ASSETS } from "@/data/assets";
 import { DESKTOP_LAYOUT, PORTRAIT_LAYOUT, type ExteriorCrop } from "./layout";
-import { DESKTOP_STAGE_HEIGHT, DESKTOP_STAGE_WIDTH } from "./stage";
+import { DESKTOP_STAGE_HEIGHT, DESKTOP_STAGE_WIDTH, PORTRAIT_STAGE_HEIGHT, PORTRAIT_STAGE_WIDTH } from "./stage";
 
 // Entry shell placements for the Experience/Projects scenes. These reuse the
 // same stage-coordinate approach as the cabin (fixed positions against the
@@ -39,8 +39,8 @@ export const EXPERIENCE_DESKTOP_CROP: ExteriorCrop = {
 
 export const EXPERIENCE_PORTRAIT_CROP: ExteriorCrop = PORTRAIT_LAYOUT.exterior;
 
-// Experience entries are placed by slug, never by array order. Unlike the
-// Projects shells they are sized directly (`scale` x the 620x350 design
+// Experience entries are placed by slug, never by array order. They are
+// sized directly (`scale` x the 620x350 design
 // size, applied to the box, art and text -- see EntryPreview's
 // contentScale), not with a CSS transform.
 export interface ExperiencePlacement extends EntryPlacement {
@@ -75,6 +75,10 @@ const MEDIA_OFFSET_CLOUD_PX = 3;
 const TEXT_OFFSET_CLOUD_PX = 2;
 const TAGLINE_OFFSET_CLOUD_PX = 1;
 
+// Previews render at 95% of the listed media width; the text column keeps
+// the full width, so no line wraps differently.
+const MEDIA_SIZE = 0.95;
+
 function experiencePlacement(
   slot: string,
   x: number,
@@ -93,7 +97,7 @@ function experiencePlacement(
     flipShell: align === "left",
     scale,
     textScale,
-    mediaWidth,
+    mediaWidth: mediaWidth * MEDIA_SIZE,
     contentInset: ASSETS.experienceCloud1.designWidth * scale * CONTENT_INSET,
     textWidth: mediaWidth * textWidthRatio,
     mediaOffsetY: CLOUD_PIXEL * scale * MEDIA_OFFSET_CLOUD_PX,
@@ -102,7 +106,7 @@ function experiencePlacement(
   };
 }
 
-// Desktop: 751x424 shells with 380x253 previews; text stays at 1.5x.
+// Desktop: 751x424 shells with 361x241 previews; text stays at 1.5x.
 // Turnbull sits top-left, Madison on the right just above the vertical
 // middle (its mass ending ~144px from the right edge), Creative Net lower
 // and nearer the centre, clear of the Go Home arrow. Y leaves ~90 stage px
@@ -120,24 +124,7 @@ export const EXPERIENCE_DESKTOP_LAYOUT: Record<string, ExperiencePlacement> = {
   "experience-1": experiencePlacement("bottom-centre", 393, 530, "left", EXPERIENCE_DESKTOP_SCALE, EXPERIENCE_DESKTOP_TEXT_SCALE, EXPERIENCE_DESKTOP_MEDIA, 1.2),
 };
 
-export const PROJECTS_DESKTOP_LAYOUT: EntryPlacement[] = [
-  { x: 1220, y: 80, align: "right" }, // upper-right
-  { x: 100, y: 365, align: "left" }, // center-left
-  { x: 1220, y: 650, align: "right" }, // lower-right
-];
-
-const PORTRAIT_ENTRY_SCALE = 0.75;
-
-// Projects portrait: a mostly vertical sequence with a subtle left/right
-// stagger -- all three fit comfortably within the tall 1080x1920 portrait
-// stage without scrolling.
-export const PROJECTS_PORTRAIT_LAYOUT: EntryPlacement[] = [
-  { x: 267, y: 140, align: "left", scale: PORTRAIT_ENTRY_SCALE },
-  { x: 347, y: 492, align: "left", scale: PORTRAIT_ENTRY_SCALE },
-  { x: 267, y: 844, align: "left", scale: PORTRAIT_ENTRY_SCALE },
-];
-
-// Portrait Experience: 808x456 shells with 392x261 previews, against a
+// Portrait Experience: 808x456 shells with 372x248 previews, against a
 // visible stage of ~x 97-983 on phones. Left clouds start at x 40 so their
 // mass runs just off the LEFT edge; Madison mirrors that off the RIGHT edge
 // (shell right edge at 1040). Previews and text keep ~80 stage px clear of
@@ -156,6 +143,62 @@ export const EXPERIENCE_PORTRAIT_LAYOUT: Record<string, ExperiencePlacement> = {
   // Creative Net
   "experience-1": experiencePlacement("lower", 40, 1220, "left", EXPERIENCE_PORTRAIT_SCALE, EXPERIENCE_PORTRAIT_TEXT_SCALE, EXPERIENCE_PORTRAIT_MEDIA, 1.45),
 };
+
+// The Projects background is a 1920x1620 master too, never stretched:
+//   desktop  -- full width at 1:1, and the window is the master's MIDDLE
+//               1080 rows (art 270-1350), centred vertically.
+//   portrait -- the cabin's portrait crop: full height, centred narrow width.
+export const PROJECTS_DESKTOP_CROP: ExteriorCrop = {
+  scale: DESKTOP_STAGE_WIDTH / ASSETS.projectsBackground.designWidth,
+  x: 0,
+  y: (DESKTOP_STAGE_HEIGHT - ASSETS.projectsBackground.designHeight) / 2,
+};
+
+export const PROJECTS_PORTRAIT_CROP: ExteriorCrop = PORTRAIT_LAYOUT.exterior;
+
+// Projects reuses the Experience slots rotated a half turn: reflected top to
+// bottom (each shell's centre y becomes stageHeight - y) and left to right
+// (centre x becomes stageWidth - x), with each entry's alignment swapped to
+// match. The boulder art keeps the cloud's flip, which -- since alignment
+// swapped -- mirrors it relative to its content. The slots are then taken
+// top to bottom, so Project entries 1 / 2 / 3 fill the top / middle / bottom
+// slot whichever Experience entry the slot came from. The boulder shell is
+// the same 620x350 as the cloud, so sizes, insets and offsets carry over.
+function mirroredSlots(
+  layout: Record<string, ExperiencePlacement>,
+  stageWidth: number,
+  stageHeight: number,
+  slots: readonly string[],
+): ExperiencePlacement[] {
+  return Object.values(layout)
+    .map((placement): ExperiencePlacement => {
+      const width = ASSETS.projectBoulder1.designWidth * placement.scale;
+      const height = ASSETS.projectBoulder1.designHeight * placement.scale;
+      return {
+        ...placement,
+        x: stageWidth - placement.x - width,
+        y: stageHeight - placement.y - height,
+        align: placement.align === "left" ? "right" : "left",
+      };
+    })
+    .sort((a, b) => a.y - b.y)
+    .map((placement, index) => ({ ...placement, slot: slots[index] }));
+}
+
+// Desktop tweaks on top of the mirror: the top boulder sits a little higher,
+// and every entry's preview and text sit a little further in from the
+// boulder's aligned edge, towards its centre. Stage px.
+const PROJECTS_DESKTOP_TOP_LIFT = 12;
+const PROJECTS_DESKTOP_EXTRA_INSET = 23;
+
+export const PROJECTS_DESKTOP_LAYOUT = mirroredSlots(EXPERIENCE_DESKTOP_LAYOUT, DESKTOP_STAGE_WIDTH, DESKTOP_STAGE_HEIGHT, ["top", "middle", "bottom"]).map(
+  (placement, index) => ({
+    ...placement,
+    y: index === 0 ? placement.y - PROJECTS_DESKTOP_TOP_LIFT : placement.y,
+    contentInset: placement.contentInset + PROJECTS_DESKTOP_EXTRA_INSET,
+  }),
+);
+export const PROJECTS_PORTRAIT_LAYOUT = mirroredSlots(EXPERIENCE_PORTRAIT_LAYOUT, PORTRAIT_STAGE_WIDTH, PORTRAIT_STAGE_HEIGHT, ["upper", "middle", "lower"]);
 
 // The cabin's desktop crop, for the debug overlay's continuity note.
 export const CABIN_DESKTOP_TOP_ART_ROW = -DESKTOP_LAYOUT.exterior.y;

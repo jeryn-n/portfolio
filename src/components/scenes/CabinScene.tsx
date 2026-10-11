@@ -69,9 +69,8 @@ const PARALLAX_VARIANTS: Record<ParallaxDepth, Variants> = {
 };
 
 // Snow falls in front of the cabin. Once it opens, the snow fades out over
-// the open cabin's box (so the interior is never snowed on) and dims to
-// sit with the darkened outdoors (it renders above the world darkness
-// overlay, so it dims itself). The cutout
+// the open cabin's box (so the interior is never snowed on) and dims a
+// little elsewhere. The cutout
 // fades in with the front wall.
 const SNOW_OPEN_OPACITY = 0.6;
 const SNOW_CUTOUT_FEATHER = 48;
@@ -96,6 +95,21 @@ function snowCutoutMask(box: { x: number; y: number; width: number; height: numb
     `linear-gradient(${direction}, #000 ${start - SNOW_CUTOUT_FEATHER}px, ${inside} ${start}px, ${inside} ${end}px, #000 ${end + SNOW_CUTOUT_FEATHER}px)`;
   return `${band("to right", box.x, box.x + box.width)}, ${band("to bottom", box.y, box.y + box.height)}`;
 }
+
+// The open cabin's halo: a circle of HALO_COLOR centred on the open cabin,
+// solid out to HALO_SOLID of its radius and feathering to nothing at the
+// edge, its radius a multiple of the open cabin's larger side. It dims the
+// outdoors around the cabin without covering the whole screen.
+const HALO_COLOR = "#2a2f4d";
+const HALO_OPACITY = 0.55;
+const HALO_RADIUS_RATIO = 0.95;
+const HALO_SOLID = 0.45;
+
+const haloVariants: Variants = {
+  closed: { opacity: 0 },
+  opening: { opacity: HALO_OPACITY, transition: { duration: REVEAL_DURATION * 0.7, ease: REVEAL_EASE } },
+  open: { opacity: HALO_OPACITY },
+};
 
 const signVariants: Variants = {
   closed: { opacity: 1 },
@@ -165,8 +179,8 @@ function ExteriorLayer({ asset, crop }: { asset: ArtAssetDef; crop: ExteriorCrop
 
 interface CabinSceneProps {
   // Where the foreground (sign, cabin, snow, title card) renders: a layer
-  // WorldSceneController keeps above its world darkness overlay, moving with
-  // this scene. The environment renders here, below that overlay.
+  // WorldSceneController keeps above the other scenes, moving with this
+  // scene. The environment renders here, below them.
   foregroundTarget: HTMLElement | null;
 }
 
@@ -344,11 +358,28 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     </>
   );
 
-  // Everything in front of the outdoors. The open-cabin dimming is not drawn
-  // in this scene: it's WorldSceneController's single world darkness
-  // overlay, which sits between the environment above and this foreground.
+  const openBox = getOpenCabinBox(layout);
+  const haloRadius = Math.max(openBox.width, openBox.height) * HALO_RADIUS_RATIO;
+
+  // Everything in front of the outdoors.
   const foreground = (
     <>
+      {/* The open-cabin halo: a soft circle of shade around the cabin, just
+          behind it, fading in with the reveal. It moves with the scene. */}
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute"
+        style={{
+          left: openBox.x + openBox.width / 2 - haloRadius,
+          top: openBox.y + openBox.height / 2 - haloRadius,
+          width: haloRadius * 2,
+          height: haloRadius * 2,
+          background: `radial-gradient(closest-side, ${HALO_COLOR} ${HALO_SOLID * 100}%, transparent 100%)`,
+        }}
+        initial={initialCabinState}
+        animate={cabinState}
+        variants={haloVariants}
+      />
       <motion.div
         className="absolute"
         style={{ left: houseSign.x, top: houseSign.y }}
