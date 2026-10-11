@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PortfolioDetailPage } from "@/components/detail/PortfolioDetailPage";
 import { PROJECT_ENTRIES, getCategoryEntry } from "@/data/portfolio";
+import { PROJECTS_UNDER_CONSTRUCTION } from "@/data/site";
 
 // The dataset is local and static, so every project route is prerendered.
 export function generateStaticParams() {
@@ -16,7 +17,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: PageProps<"/projects/[slug]">) {
   const { slug } = await params;
-  const entry = getCategoryEntry("project", slug);
+  const entry = PROJECTS_UNDER_CONSTRUCTION ? undefined : getCategoryEntry("project", slug);
   return { title: entry ? `${entry.title} — imjeryn` : "Not found — imjeryn" };
 }
 
@@ -27,9 +28,11 @@ export async function generateMetadata({ params }: PageProps<"/projects/[slug]">
 //
 // The slug key guarantees a fresh mount when Previous/Next Entry moves
 // between sibling routes, which is what resets the carousel to the overview.
+//
+// While Projects is under construction, every project route is not-found.
 export default async function ProjectDetailRoute({ params }: PageProps<"/projects/[slug]">) {
   const { slug } = await params;
-  const entry = getCategoryEntry("project", slug);
+  const entry = PROJECTS_UNDER_CONSTRUCTION ? undefined : getCategoryEntry("project", slug);
   if (!entry) notFound();
 
   return <PortfolioDetailPage key={entry.slug} entry={entry} />;

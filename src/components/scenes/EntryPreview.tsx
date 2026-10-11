@@ -163,7 +163,7 @@ export function EntryPreview({
                 alt={entry.title}
                 objectPosition={entry.displayImagePosition}
                 active={active}
-                comingSoon={entry.mediaComingSoon}
+                comingSoonOverlay={entry.coverComingSoon}
                 border={frameColor ? { color: frameColor, width: 4 * s, radius: 10 * s } : undefined}
               />
             </div>

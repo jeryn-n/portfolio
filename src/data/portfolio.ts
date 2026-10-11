@@ -35,6 +35,8 @@ export interface FeatureItem {
   // it, and the detail page renders an explicit unsupported placeholder
   // rather than inventing playback behavior.
   mediaType?: MediaType;
+  // The feature's photo is a flat grey "Coming Soon" card instead of `image`.
+  mediaComingSoon?: boolean;
   // Shown only while this feature's slide is up, after any entry-level links.
   externalLinks?: ExternalLink[];
 }
@@ -74,9 +76,9 @@ export interface PortfolioEntry {
   displayImage: string;
   // CSS object-position override for the preview/detail media frames.
   displayImagePosition?: string;
-  // Media not ready to show yet: every image of the entry (scene preview,
-  // overview and features) renders a grey "Coming Soon" card instead.
-  mediaComingSoon?: boolean;
+  // The cover image (scene preview and detail overview) shows under a
+  // delicate grey "Coming Soon" overlay.
+  coverComingSoon?: boolean;
   features: FeatureItem[];
   skills: Skill[];
   // Shown on every slide of the entry, overview and features alike.
@@ -153,11 +155,12 @@ export const EXPERIENCE_ENTRIES: PortfolioEntry[] = [
     description:
       "In progress. Updates coming soon.",
     displayImage: "/portfolio/experience/experience-3.jpg",
-    mediaComingSoon: true,
+    coverComingSoon: true,
     features: [
       {
         title: "In Progress",
         image: "/portfolio/experience/experience-3-feature-1.jpg",
+        mediaComingSoon: true,
         description: "",
       },
     ],

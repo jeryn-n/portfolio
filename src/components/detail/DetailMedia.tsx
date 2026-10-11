@@ -9,7 +9,9 @@ interface DetailMediaProps {
   alt: string;
   objectPosition?: string;
   mediaType?: MediaType;
-  comingSoon?: boolean;
+  // "card" replaces the media with the grey Coming Soon card; "overlay" keeps
+  // it and lays a delicate Coming Soon veil over it.
+  comingSoon?: "card" | "overlay";
 }
 
 // Light-surface wireframe stand-in, matching the detail page's white/blue
@@ -41,10 +43,10 @@ function MediaFallback({ label, src }: { label: string; src: string }) {
 // Video playback isn't implemented. Rather than invent behavior for it, a
 // `mediaType: "video"` slide renders an explicit unsupported notice, which
 // keeps the data shape usable today without pretending it works.
-export function DetailMedia({ src, alt, objectPosition = "center", mediaType = "image", comingSoon = false }: DetailMediaProps) {
+export function DetailMedia({ src, alt, objectPosition = "center", mediaType = "image", comingSoon }: DetailMediaProps) {
   const { failed, ref, onError } = useImageFallback();
 
-  if (comingSoon) {
+  if (comingSoon === "card") {
     return <ComingSoonMedia textClassName="text-base sm:text-xl" />;
   }
 
@@ -52,11 +54,9 @@ export function DetailMedia({ src, alt, objectPosition = "center", mediaType = "
     return <MediaFallback label="Video preview not supported yet" src={src} />;
   }
 
-  if (failed) {
-    return <MediaFallback label={alt} src={src} />;
-  }
-
-  return (
+  const media = failed ? (
+    <MediaFallback label={alt} src={src} />
+  ) : (
     // Plain <img> keeps us in control of the onError fallback, matching ArtAsset.
     // eslint-disable-next-line @next/next/no-img-element
     <img
@@ -69,5 +69,14 @@ export function DetailMedia({ src, alt, objectPosition = "center", mediaType = "
       style={{ objectPosition }}
       onError={onError}
     />
+  );
+
+  if (comingSoon !== "overlay") return media;
+
+  return (
+    <>
+      {media}
+      <ComingSoonMedia overlay textClassName="text-base sm:text-xl" />
+    </>
   );
 }

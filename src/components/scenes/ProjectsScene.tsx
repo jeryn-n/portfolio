@@ -3,6 +3,7 @@
 import { ArtAsset } from "@/components/art/ArtAsset";
 import { ASSETS } from "@/data/assets";
 import { PROJECT_ENTRIES } from "@/data/portfolio";
+import { PROJECTS_UNDER_CONSTRUCTION } from "@/data/site";
 import { DESKTOP_STAGE_HEIGHT, DESKTOP_STAGE_WIDTH, PORTRAIT_STAGE_HEIGHT, PORTRAIT_STAGE_WIDTH } from "@/lib/stage";
 import { useDebugLayout } from "@/lib/useDebugLayout";
 import { PROJECTS_DESKTOP_CROP, PROJECTS_DESKTOP_LAYOUT, PROJECTS_PORTRAIT_CROP, PROJECTS_PORTRAIT_LAYOUT } from "@/lib/worldLayout";
@@ -41,10 +42,31 @@ export function ProjectsScene() {
         }}
       />
 
+      {/* Temporary cover (see PROJECTS_UNDER_CONSTRUCTION): the background
+          stays, dimmed, and the entries below aren't rendered at all. */}
+      {PROJECTS_UNDER_CONSTRUCTION && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-5 bg-ink/55 px-[8%] text-center text-paper">
+          <span className="h-[3px] w-[120px] rounded-full bg-paper/50" />
+          {/* Portrait is narrower in stage px, so the heading wraps onto two
+              larger lines there. */}
+          <p
+            className={`font-bold uppercase tracking-[0.18em] ${
+              mode === "desktop" ? "text-[56px] leading-none" : "text-[84px] leading-[1.1]"
+            }`}
+          >
+            Under Construction
+          </p>
+          <p className={`text-paper/80 ${mode === "desktop" ? "text-[24px]" : "text-[38px]"}`}>
+            Projects are on their way. Check back soon.
+          </p>
+          <span className="h-[3px] w-[120px] rounded-full bg-paper/50" />
+        </div>
+      )}
+
       {/* Entry 1 takes the top slot, 2 the middle, 3 the bottom. The box is
           sized directly (no transform), so the content's hitbox, text and
           3:2 preview are never scaled or skewed. */}
-      {PROJECT_ENTRIES.map((entry, index) => {
+      {!PROJECTS_UNDER_CONSTRUCTION && PROJECT_ENTRIES.map((entry, index) => {
         const placement = placements[index];
         if (!placement) return null;
         const width = SHELL_ASSET.designWidth * placement.scale;

@@ -43,11 +43,14 @@ interface Slide {
   mediaType?: MediaType;
   altText: string;
   links: ExternalLink[];
+  comingSoon?: "card" | "overlay";
 }
 
 // Slide 0 is always the entry overview; slides 1..N are its features. An
 // entry with no features therefore has exactly one carousel state. Entry
 // links ride along on every slide; a feature's own links only on its slide.
+// A coming-soon cover keeps its image under an overlay; a coming-soon
+// feature swaps its photo for the flat card.
 function buildSlides(entry: PortfolioEntry): Slide[] {
   const entryLinks = entry.externalLinks ?? [];
   return [
@@ -59,17 +62,21 @@ function buildSlides(entry: PortfolioEntry): Slide[] {
       imagePosition: entry.displayImagePosition,
       altText: entry.title,
       links: entryLinks,
+      comingSoon: entry.coverComingSoon ? "overlay" : undefined,
     },
-    ...entry.features.map((feature, index) => ({
-      key: `feature-${index}`,
-      largeText: feature.tagline ?? feature.title,
-      description: feature.description,
-      image: feature.image,
-      imagePosition: feature.imagePosition,
-      mediaType: feature.mediaType,
-      altText: `${entry.title} — ${feature.title}`,
-      links: [...entryLinks, ...(feature.externalLinks ?? [])],
-    })),
+    ...entry.features.map(
+      (feature, index): Slide => ({
+        key: `feature-${index}`,
+        largeText: feature.tagline ?? feature.title,
+        description: feature.description,
+        image: feature.image,
+        imagePosition: feature.imagePosition,
+        mediaType: feature.mediaType,
+        altText: `${entry.title} — ${feature.title}`,
+        links: [...entryLinks, ...(feature.externalLinks ?? [])],
+        comingSoon: feature.mediaComingSoon ? "card" : undefined,
+      }),
+    ),
   ];
 }
 
@@ -298,7 +305,7 @@ function DetailContent({ entry }: { entry: PortfolioEntry }) {
                   alt={slide.altText}
                   objectPosition={slide.imagePosition}
                   mediaType={slide.mediaType}
-                  comingSoon={entry.mediaComingSoon}
+                  comingSoon={slide.comingSoon}
                 />
               </motion.div>
             </AnimatePresence>

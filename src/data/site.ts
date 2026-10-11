@@ -1,5 +1,11 @@
 // Centralized, editable site content. Real copy/links will replace the
 // placeholders here without any component changes.
+
+// Temporary: hides the Projects section from deployments without removing
+// any of it. While true, the Projects scene shows an "Under Construction"
+// cover instead of its entries (they aren't rendered at all), and the
+// /projects/* detail routes resolve to not-found. Set to false to restore.
+export const PROJECTS_UNDER_CONSTRUCTION = true;
 export interface SiteData {
   name: string;
   title: string;

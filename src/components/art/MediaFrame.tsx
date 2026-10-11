@@ -14,8 +14,8 @@ interface MediaFrameProps {
   // A solid, slightly rounded border in place of the dashed wireframe one,
   // px.
   border?: { color: string; width: number; radius: number };
-  // Shows the grey "Coming Soon" card instead of the image.
-  comingSoon?: boolean;
+  // Lays a delicate grey "Coming Soon" overlay over the image.
+  comingSoonOverlay?: boolean;
 }
 
 // A 3:2 preview frame for data-driven portfolio media (arbitrary paths, not
@@ -31,7 +31,7 @@ export function MediaFrame({
   active = false,
   className,
   border,
-  comingSoon = false,
+  comingSoonOverlay = false,
 }: MediaFrameProps) {
   const { failed, ref, onError } = useImageFallback();
   const { file, folder } = mediaFileHint(src);
@@ -43,9 +43,7 @@ export function MediaFrame({
       } ${className ?? ""}`}
       style={border ? { borderColor: border.color, borderWidth: border.width, borderRadius: border.radius } : undefined}
     >
-      {comingSoon ? (
-        <ComingSoonMedia textClassName="text-[20px]" />
-      ) : !failed ? (
+      {!failed ? (
         <motion.img
           ref={ref}
           src={src}
@@ -69,6 +67,7 @@ export function MediaFrame({
           </div>
         </div>
       )}
+      {comingSoonOverlay && <ComingSoonMedia overlay textClassName="text-[20px]" />}
     </div>
   );
 }
