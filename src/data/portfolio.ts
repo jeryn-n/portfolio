@@ -6,8 +6,20 @@
 // All copy below is placeholder development content; the user will supply
 // real text, screenshots, and skill icons later. Nothing here invents a real
 // fact, destination, or credential.
+//
+// Media lives in public/portfolio/experience/ and public/portfolio/projects/,
+// named <slug>.jpg for an entry's overview/preview image and
+// <slug>-feature-<n>.jpg for its features. Until a file exists, its
+// placeholder shows that exact filename and folder.
 
 export type MediaType = "image" | "video";
+
+// A media path split into what its placeholder shows: the filename to create
+// and the public folder to put it in.
+export function mediaFileHint(src: string): { file: string; folder: string } {
+  const slash = src.lastIndexOf("/");
+  return { file: src.slice(slash + 1), folder: `public${src.slice(0, slash + 1)}` };
+}
 
 export type PortfolioCategory = "experience" | "project";
 
@@ -23,6 +35,8 @@ export interface FeatureItem {
   // it, and the detail page renders an explicit unsupported placeholder
   // rather than inventing playback behavior.
   mediaType?: MediaType;
+  // Shown only while this feature's slide is up, after any entry-level links.
+  externalLinks?: ExternalLink[];
 }
 
 export interface ExternalLink {
@@ -30,11 +44,25 @@ export interface ExternalLink {
   href: string;
 }
 
+// An href with no scheme ("www.createuci.com") would resolve relative to the
+// current route (/experience/www.createuci.com), so it's treated as https.
+export function externalHref(href: string): string {
+  return /^[a-z][a-z\d+.-]*:/i.test(href) ? href : `https://${href.replace(/^\/+/, "")}`;
+}
+
 export interface Skill {
   name: string;
-  // Real icon art hasn't arrived; a missing icon renders a clean square
+  // Optional override. Normally left out: the icon path is derived from the
+  // name (skillNameToIconPath), and a missing file renders a clean square
   // placeholder instead.
   icon?: string;
+}
+
+// Skill icons are named after the skill with every non-letter removed,
+// lowercased: "Project Management" -> projectmanagement.png, "C++" -> c.png,
+// "UI/UX" -> uiux.png. Deterministic, so there's no filename map to maintain.
+export function skillNameToIconPath(name: string): string {
+  return `/art/skills/${name.replace(/[^A-Za-z]/g, "").toLowerCase()}.png`;
 }
 
 export interface PortfolioEntry {
@@ -46,8 +74,12 @@ export interface PortfolioEntry {
   displayImage: string;
   // CSS object-position override for the preview/detail media frames.
   displayImagePosition?: string;
+  // Media not ready to show yet: every image of the entry (scene preview,
+  // overview and features) renders a grey "Coming Soon" card instead.
+  mediaComingSoon?: boolean;
   features: FeatureItem[];
   skills: Skill[];
+  // Shown on every slide of the entry, overview and features alike.
   externalLinks?: ExternalLink[];
 }
 
@@ -63,16 +95,16 @@ export const EXPERIENCE_ENTRIES: PortfolioEntry[] = [
     tagline: "Connecting creatives across UC Irvine.",
     description:
       "The Creative Media Network at UCI is an emerging organization on campus that helps streamline the connection process of artists across different mediums. I directed the design, development, and deployment of the website that our organization resides on.",
-    displayImage: "/images/portfolio/experience-1.jpg",
+    displayImage: "/portfolio/experience/experience-1.jpg",
     features: [
       {
         title: "Website",
-        image: "/images/portfolio/experience-1-feature-1.jpg",
+        image: "/portfolio/experience/experience-1-feature-1.jpg",
         description: "Using my skills in UI/UX and dynamic networking systems, I built and promoted a functional platform that hosts over 30 individual members, allowing them to connect and collaborate anytime, from wherever they are.",
       },
       {
         title: "Design",
-        image: "/images/portfolio/experience-1-feature-2.jpg",
+        image: "/portfolio/experience/experience-1-feature-2.jpg",
         description: "From logos and page designs to marketing material and presentations, I managed the creative development of this project from development to deployment.",
       },
     ],
@@ -84,7 +116,7 @@ export const EXPERIENCE_ENTRIES: PortfolioEntry[] = [
       { name: "SQL" },
       { name: "Design" },
     ],
-    externalLinks: [{ label: "CreateUCI.com", href: "www.createuci.com" }],
+    externalLinks: [{ label: "CreateUCI.com", href: "https://www.createuci.com" }],
   },
   {
     slug: "experience-2",
@@ -93,21 +125,21 @@ export const EXPERIENCE_ENTRIES: PortfolioEntry[] = [
     tagline: "Using creative platforms to make a real difference.",
     description:
       "At Madison, I worked alongside award winning designers to deliver media packages and implementation plans for corporate entities.",
-    displayImage: "/images/portfolio/experience-2.jpg",
+    displayImage: "/portfolio/experience/experience-2.jpg",
     features: [
       {
-        title: "Inventory Management",
-        image: "/images/portfolio/experience-2-feature-1.jpg",
-        description: "Using excel and python, I scraped through hundreds of scattered inventory entries provided by a law firm client. I was then responsible for the validation and presentation of the $500,000+ of artistic inventory for the firm.",
-      },
-      {
         title: "Art Project Lead",
-        image: "/images/portfolio/experience-2-feature-2.jpg",
+        image: "/portfolio/experience/experience-2-feature-1.jpg",
         description: "I was responsible for the research, development, and presentation of an initial design plan for a series of artwork (over 200 sq ft) to be professionally designed and installed for a new hospital care unit.",
       },
       {
+        title: "Inventory Management",
+        image: "/portfolio/experience/experience-2-feature-2.jpg",
+        description: "Using excel and python, I scraped through hundreds of scattered inventory entries provided by a law firm client. I was then responsible for the validation and presentation of the $500,000+ of artistic inventory for the firm.",
+      },
+      {
         title: "Website Security",
-        image: "/images/portfolio/experience-2-feature-2.jpg",
+        image: "/portfolio/experience/experience-2-feature-3.jpg",
         description: "I performed a full audit of the company website, reinforcing design flaws, security hazards, and technical risks.",
       },
     ],
@@ -120,11 +152,12 @@ export const EXPERIENCE_ENTRIES: PortfolioEntry[] = [
     tagline: "Digital renovation for a live auction platform.",
     description:
       "In progress. Updates coming soon.",
-    displayImage: "/images/portfolio/experience-3.jpg",
+    displayImage: "/portfolio/experience/experience-3.jpg",
+    mediaComingSoon: true,
     features: [
       {
         title: "In Progress",
-        image: "/images/portfolio/experience-3-feature-1.jpg",
+        image: "/portfolio/experience/experience-3-feature-1.jpg",
         description: "",
       },
     ],
@@ -147,16 +180,16 @@ export const PROJECT_ENTRIES: PortfolioEntry[] = [
     tagline: "Tangible metrics on creative exercises.",
     description:
       "",
-    displayImage: "/images/portfolio/project-1.jpg",
+    displayImage: "/portfolio/projects/project-1.jpg",
     features: [
       {
         title: "Souplex",
-        image: "/images/portfolio/project-1-feature-1.jpg",
+        image: "/portfolio/projects/project-1-feature-1.jpg",
         description: "A multi-platform comedy brand achieving: \n - 35+ million views \n - 5+ million interactions \n - 22+ thousand followers \n - 250+ active community members",
       },
       {
         title: "Strategy Consultant",
-        image: "/images/portfolio/project-1-feature-2.jpg",
+        image: "/portfolio/projects/project-1-feature-2.jpg",
         description: "Analyzed content performance, publishing structure, and creative format to identify barriers to sustainable growth. Recommended data-informed changes that increased typical video viewership from approximately 500–1,000 views to more than 10,000 views per video.",
       },
     ],
@@ -175,22 +208,24 @@ export const PROJECT_ENTRIES: PortfolioEntry[] = [
     tagline: "Because you just can’t escape it.",
     description:
       "Programming has been essential to so much of the creative and professional work I have done. Check out some of the highlights here.",
-    displayImage: "/images/portfolio/project-2.jpg",
+    displayImage: "/portfolio/projects/project-2.jpg",
     features: [
       {
         title: "Dart Job Finder",
-        image: "/images/portfolio/project-2-feature-1.jpg",
+        image: "/portfolio/projects/project-2-feature-1.jpg",
         description: "",
       },
       {
         title: "Fully Functional DBMS",
-        image: "/images/portfolio/project-2-feature-2.jpg",
+        image: "/portfolio/projects/project-2-feature-2.jpg",
         description: "",
       },
       {
         title: "Github",
-        image: "/images/portfolio/project-2-feature-2.jpg",
+        image: "/portfolio/projects/project-2-feature-3.jpg",
         description: "",
+        // Placeholder destination -- swap in the real GitHub profile URL.
+        externalLinks: [{ label: "GitHub", href: PLACEHOLDER_HREF }],
       },
     ],
     skills: [{ name: "Python" }, { name: "C++" }, { name: "Javascript" }, { name: "HTML" }, { name: "Git" }, { name: "AI" }],
@@ -202,16 +237,16 @@ export const PROJECT_ENTRIES: PortfolioEntry[] = [
     tagline: "Beyond the computer screen.",
     description:
       "I have developed a bredth of experience around creative production, from the courses I have taken, to the array of short films I have helped produce, to the performances I have participated in.",
-    displayImage: "/images/portfolio/project-3.jpg",
+    displayImage: "/portfolio/projects/project-3.jpg",
     features: [
       {
         title: "Dante’s Disaster (Award)",
-        image: "/images/portfolio/project-3-feature-1.jpg",
+        image: "/portfolio/projects/project-3-feature-1.jpg",
         description: "I was awarded the national Sound Design award at the College 48 short film awards ceremony for my sound capture, editing and sound design work in our 7-minute short.",
       },
       {
         title: "Music Performance (Award)",
-        image: "/images/portfolio/project-3-feature-2.jpg",
+        image: "/portfolio/projects/project-3-feature-2.jpg",
         description: "I was awarded the principal player for my instrument at both the Colorado All-State and Colorado University honors festivals after multiple rigorous rounds of auditions. I also held leadership positions in multiple state-wide and nationally awarded ensembles.",
       },
     ],

@@ -7,9 +7,11 @@ import { useAudio } from "@/components/audio/AudioProvider";
 import { useWorldScene } from "@/components/scenes/WorldSceneContext";
 import { useSiteUI } from "@/components/ui/SiteUIProvider";
 import {
+  externalHref,
   getCategorySceneHref,
   getEntryHref,
   getSiblingEntries,
+  type ExternalLink,
   type MediaType,
   type PortfolioEntry,
 } from "@/data/portfolio";
@@ -40,11 +42,14 @@ interface Slide {
   imagePosition?: string;
   mediaType?: MediaType;
   altText: string;
+  links: ExternalLink[];
 }
 
 // Slide 0 is always the entry overview; slides 1..N are its features. An
-// entry with no features therefore has exactly one carousel state.
+// entry with no features therefore has exactly one carousel state. Entry
+// links ride along on every slide; a feature's own links only on its slide.
 function buildSlides(entry: PortfolioEntry): Slide[] {
+  const entryLinks = entry.externalLinks ?? [];
   return [
     {
       key: "overview",
@@ -53,6 +58,7 @@ function buildSlides(entry: PortfolioEntry): Slide[] {
       image: entry.displayImage,
       imagePosition: entry.displayImagePosition,
       altText: entry.title,
+      links: entryLinks,
     },
     ...entry.features.map((feature, index) => ({
       key: `feature-${index}`,
@@ -62,28 +68,79 @@ function buildSlides(entry: PortfolioEntry): Slide[] {
       imagePosition: feature.imagePosition,
       mediaType: feature.mediaType,
       altText: `${entry.title} — ${feature.title}`,
+      links: [...entryLinks, ...(feature.externalLinks ?? [])],
     })),
   ];
 }
 
-const CONTROL_CLASS =
-  "inline-flex items-center justify-center border-2 border-ink-soft bg-paper font-bold uppercase tracking-wide text-ink-soft transition-colors hover:bg-ink-soft hover:text-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-soft disabled:pointer-events-none disabled:opacity-0";
+const FOCUS_CLASS =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-soft";
+
+// Small uppercase label shared by the header's category ("Experience" /
+// "Project") and the Skills heading, so the two always match.
+const LABEL_CLASS = "text-[11px] font-bold uppercase leading-tight tracking-[0.25em] text-ink-soft/70 sm:text-[13px]";
+
+// Rounded navy pill with white text: Exit and the external link buttons.
+const PILL_CLASS = `inline-flex items-center gap-1.5 rounded-full bg-ink-soft px-5 py-2 text-sm font-bold tracking-wide text-white shadow-sm transition hover:bg-ink hover:shadow-md active:scale-95 sm:px-7 sm:py-2.5 sm:text-base ${FOCUS_CLASS}`;
+
+// Internal carousel arrows: a bare navy chevron, no box. The button itself is
+// larger than the mark so the hit area stays generous.
+const CAROUSEL_ARROW_CLASS = `group inline-flex h-14 w-7 shrink-0 items-center justify-center rounded-md text-ink-soft transition-colors hover:text-ink active:scale-90 disabled:pointer-events-none disabled:opacity-0 sm:h-20 sm:w-12 ${FOCUS_CLASS}`;
+
+// Entry-level Previous/Next: labelled text with a small chevron, deliberately
+// lighter than (and distinct from) the large carousel arrows beside the media.
+const ENTRY_NAV_CLASS = `group inline-flex items-center gap-1.5 rounded-sm py-1 text-xs font-bold uppercase tracking-wide text-ink-soft transition-colors hover:text-ink sm:text-sm ${FOCUS_CLASS}`;
+
+// A plain stroked `<` / `>` -- the one directional mark, shared by the carousel
+// arrows and the entry navigation at different sizes.
+function Chevron({ direction, className }: { direction: "left" | "right"; className: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d={direction === "left" ? "M15 4 7 12l8 8" : "m9 4 8 8-8 8"} />
+    </svg>
+  );
+}
 
 // The one detail template behind all six entry routes -- Projects and
 // Experience differ only in their data and their wording, never in layout.
 //
+// Every arrival starts on the overview (slide 0). The routes key this by
+// slug, but that alone isn't enough: with cacheComponents, Next keeps recently
+// visited routes alive in a hidden <Activity> instead of unmounting them, so
+// coming back to an entry (browser Back, or Next then Previous) would restore
+// whatever slide was showing. Effects are torn down when the route is hidden,
+// so that's where the reset happens -- out of sight -- by remounting the
+// content with a fresh key. It then reappears on the overview with no slide
+// animation.
+export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
+  const [visit, setVisit] = useState(0);
+  useEffect(() => () => setVisit((current) => current + 1), []);
+  return <DetailContent key={visit} entry={entry} />;
+}
+
 // Scrolling: the page is its own scroll container (the document body stays
 // overflow-hidden for the viewport-locked world). Desktop is sized to fit
 // 1440x900 and up in a single viewport, with the media capped by viewport
 // height rather than width so the whole template stays above the fold;
 // anything that doesn't fit simply scrolls rather than clipping.
-export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
+//
+// Below xl the column reaches under the fixed sound button (bottom-right,
+// 44px at 1rem), so the larger bottom padding there lifts the entry nav clear
+// of it; from xl up the centred column ends well left of the button.
+function DetailContent({ entry }: { entry: PortfolioEntry }) {
   const slides = buildSlides(entry);
   const total = slides.length;
 
-  // Always starts on the overview. Each route renders this component with a
-  // slug-based key, so arriving at a new entry remounts it and no previous
-  // slide position is remembered.
+  // Slide 0 is the overview; there is one state per feature after it.
   const [index, setIndex] = useState(0);
   const [direction, setDirection] = useState(1);
   const slide = slides[index];
@@ -95,7 +152,9 @@ export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
 
   const isProject = entry.category === "project";
   const entryNoun = isProject ? "Project" : "Experience";
-  const links = entry.externalLinks ?? [];
+  // The link row keeps its height on every slide of an entry that has links
+  // anywhere, so a feature-only link appearing doesn't shift the skills.
+  const hasLinkRow = slides.some((candidate) => candidate.links.length > 0);
 
   const step = useCallback(
     (delta: 1 | -1) => {
@@ -169,50 +228,56 @@ export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
   return (
     <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-paper text-ink">
       <motion.main
-        className="mx-auto flex min-h-dvh w-full max-w-[1120px] flex-col gap-4 px-4 pb-8 pt-16 sm:gap-5 sm:px-8"
+        className="mx-auto flex min-h-dvh w-full max-w-[1120px] flex-col gap-4 px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-16 sm:gap-3 sm:px-8 xl:pb-4 xl:pt-8"
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.25, ease: SLIDE_EASE }}
       >
         {/* Overall entry title -- fixed for the whole route, never affected
             by carousel slide changes. Top padding keeps it clear of the
-            global menu, which is fixed in the viewport's upper-left. */}
-        <header className="flex items-start justify-between gap-4">
+            global menu, which is fixed in the viewport's upper-left; from xl
+            up the centred column sits well right of the menu, so the header
+            can rise higher without meeting it. */}
+        <header className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-ink-soft/70">{entryNoun}</p>
+            <p className={LABEL_CLASS}>{entryNoun}</p>
             <h1 className="text-xl font-bold leading-tight sm:text-2xl">{entry.title}</h1>
           </div>
           <Link
             href={getCategorySceneHref(entry.category)}
             onClick={prepareSceneExit}
-            className={`${CONTROL_CLASS} shrink-0 px-3 py-1.5 text-[11px] sm:text-xs`}
+            className={`${PILL_CLASS} shrink-0`}
           >
-            Exit ✕
+            Exit
           </Link>
         </header>
 
         {/* Media + internal carousel arrows. The arrow columns always render
             so the media's width never shifts between entries with different
             feature counts; with a single slide they're simply disabled. */}
-        <div className="flex w-full items-center justify-center gap-2 sm:gap-4">
+        <div className="flex w-full items-center justify-center gap-1 sm:gap-4">
           <button
             type="button"
             onClick={() => step(-1)}
             disabled={total <= 1}
             aria-label={`Show previous media (slide ${index + 1} of ${total})`}
-            className={`${CONTROL_CLASS} h-12 w-8 shrink-0 text-xl sm:h-16 sm:w-12 sm:text-2xl`}
+            className={CAROUSEL_ARROW_CLASS}
           >
-            <span aria-hidden="true">‹</span>
+            <Chevron
+              direction="left"
+              className="h-7 w-7 transition-transform group-hover:-translate-x-0.5 sm:h-11 sm:w-11"
+            />
           </button>
 
           {/* The media is sized against VIEWPORT HEIGHT rather than width:
-              capping max-width at 70dvh puts its height at ~39dvh, which is
+              capping max-width at 78dvh puts its height at ~44dvh, which is
               what keeps the whole template (text, CTAs, skills, entry nav)
               inside one viewport at 1440x900 even for the tallest entry --
-              six skills plus a CTA row. 16:9 survives because only the width
-              is constrained, so the height still derives from it. */}
+              six skills plus a CTA row and a three-line description. 16:9
+              survives because only the width is constrained, so the height
+              still derives from it. */}
           <div
-            className="relative aspect-video w-full max-w-[70dvh] overflow-hidden rounded-lg border-4 border-ink-soft bg-wireframe-fill"
+            className="relative aspect-video w-full max-w-[78dvh] overflow-hidden rounded-lg border-4 border-ink-soft bg-wireframe-fill"
             onPointerDown={handleMediaPointerDown}
             onPointerUp={handleMediaPointerUp}
             onPointerCancel={handleMediaPointerCancel}
@@ -233,6 +298,7 @@ export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
                   alt={slide.altText}
                   objectPosition={slide.imagePosition}
                   mediaType={slide.mediaType}
+                  comingSoon={entry.mediaComingSoon}
                 />
               </motion.div>
             </AnimatePresence>
@@ -243,9 +309,12 @@ export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
             onClick={() => step(1)}
             disabled={total <= 1}
             aria-label={`Show next media (slide ${index + 1} of ${total})`}
-            className={`${CONTROL_CLASS} h-12 w-8 shrink-0 text-xl sm:h-16 sm:w-12 sm:text-2xl`}
+            className={CAROUSEL_ARROW_CLASS}
           >
-            <span aria-hidden="true">›</span>
+            <Chevron
+              direction="right"
+              className="h-7 w-7 transition-transform group-hover:translate-x-0.5 sm:h-11 sm:w-11"
+            />
           </button>
         </div>
 
@@ -269,26 +338,52 @@ export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
           </motion.div>
         </AnimatePresence>
 
-        {/* Optional external CTAs: between description and skills, and the
-            whole region is absent when an entry has no links. */}
-        {links.length > 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3">
-            {links.map((link) => (
-              <a
-                key={`${link.label}-${link.href}`}
-                href={link.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${CONTROL_CLASS} px-4 py-2 text-[11px] sm:text-xs`}
+        {/* Optional external CTAs, between description and skills: the
+            region is absent when no slide of the entry has links. Keyed by
+            the slide's link set, so entry-level links that stay put from
+            slide to slide don't flicker -- only a change in the set fades. */}
+        {hasLinkRow && (
+          <div className="min-h-9 sm:min-h-11">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={`links:${slide.links.map((link) => link.href).join(" ")}`}
+                className="flex flex-wrap items-center justify-center gap-2 sm:gap-3"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: TEXT_FADE_DURATION, ease: "easeOut" }}
               >
-                {link.label} ↗
-              </a>
-            ))}
+                {slide.links.map((link) => (
+                  <a
+                    key={`${link.label}-${link.href}`}
+                    href={externalHref(link.href)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={PILL_CLASS}
+                  >
+                    {link.label}
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2.5}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-3.5 w-3.5 sm:h-4 sm:w-4"
+                    >
+                      <path d="M7 17 17 7M8 7h9v9" />
+                    </svg>
+                    <span className="sr-only">(opens in a new tab)</span>
+                  </a>
+                ))}
+              </motion.div>
+            </AnimatePresence>
           </div>
         )}
 
-        <section aria-label="Skills" className="flex flex-col gap-2">
-          <h2 className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-ink-soft/70">Skills</h2>
+        <section aria-label="Skills" className="flex flex-col gap-1.5">
+          <h2 className={`${LABEL_CLASS} text-center`}>Skills</h2>
           {/* No horizontal gap by design: the fixed one-third basis is what
               caps mobile at 3 columns and centers any remainder (5 -> 3 + 2,
               4 -> 3 + 1). Desktop switches to intrinsic widths so 1-6 skills
@@ -301,25 +396,26 @@ export function PortfolioDetailPage({ entry }: { entry: PortfolioEntry }) {
         </section>
 
         {/* Entry-level navigation, deliberately distinct from the carousel
-            arrows above: labelled text controls in a separate bordered row at
-            the end of the page. Loops within this category only. */}
-        <nav
-          aria-label={`${entryNoun} navigation`}
-          className="mt-auto flex items-center justify-between gap-3 border-t-2 border-ink-soft/25 pt-4"
-        >
+            arrows above: small labelled text links pinned to the end of the
+            page, no boxes. Loops within this category only. */}
+        <nav aria-label={`${entryNoun} navigation`} className="mt-auto flex items-center justify-between gap-3">
           <Link
             href={getEntryHref(previous)}
             aria-label={`Previous ${entryNoun}: ${previous.title}`}
-            className={`${CONTROL_CLASS} px-3 py-2 text-[11px] sm:text-xs`}
+            className={ENTRY_NAV_CLASS}
           >
-            ◀ Previous {entryNoun}
+            <Chevron
+              direction="left"
+              className="h-4 w-4 transition-transform group-hover:-translate-x-0.5 sm:h-5 sm:w-5"
+            />
+            Previous {entryNoun}
           </Link>
-          <Link
-            href={getEntryHref(next)}
-            aria-label={`Next ${entryNoun}: ${next.title}`}
-            className={`${CONTROL_CLASS} px-3 py-2 text-[11px] sm:text-xs`}
-          >
-            Next {entryNoun} ▶
+          <Link href={getEntryHref(next)} aria-label={`Next ${entryNoun}: ${next.title}`} className={ENTRY_NAV_CLASS}>
+            Next {entryNoun}
+            <Chevron
+              direction="right"
+              className="h-4 w-4 transition-transform group-hover:translate-x-0.5 sm:h-5 sm:w-5"
+            />
           </Link>
         </nav>
       </motion.main>
