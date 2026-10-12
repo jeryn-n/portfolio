@@ -14,6 +14,9 @@ interface ExclamationMarkProps {
   y: number;
   ariaLabel: string;
   bouncePattern?: BouncePattern;
+  // Render size as a fraction of the design size, shrunk/grown around the
+  // mark's centre so (x, y) keeps the same visual spot.
+  scale?: number;
 }
 
 const exclamationAsset = ASSETS.uiExclamation;
@@ -50,13 +53,13 @@ export const singleBouncePattern: BouncePattern = {
 // exists this appears as a labeled wireframe placeholder in production too.
 // Only the wrapper animates (fade + bounce) -- never the image itself -- so
 // dropping in the real art later needs no animation changes.
-export function ExclamationMark({ x, y, ariaLabel, bouncePattern = twoBouncePattern }: ExclamationMarkProps) {
+export function ExclamationMark({ x, y, ariaLabel, bouncePattern = twoBouncePattern, scale = 1 }: ExclamationMarkProps) {
   return (
     <motion.div
       role="status"
       aria-label={ariaLabel}
       className="pointer-events-none absolute"
-      style={{ left: x, top: y, width: exclamationAsset.designWidth, height: exclamationAsset.designHeight }}
+      style={{ left: x, top: y, width: exclamationAsset.designWidth, height: exclamationAsset.designHeight, scale }}
       initial="hidden"
       animate="shown"
       variants={fadeInVariants}

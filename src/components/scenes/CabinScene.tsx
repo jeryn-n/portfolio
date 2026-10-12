@@ -12,7 +12,9 @@ import { ASSETS, type ArtAssetDef } from "@/data/assets";
 import {
   CABIN_HEIGHT,
   CABIN_WIDTH,
+  CHIMNEY_SMOKE_ORIGIN,
   DOOR_HINT_RATIO,
+  DOOR_HINT_SCALE,
   getCabinBaseY,
   getOpenCabinBox,
   getSceneLayout,
@@ -32,6 +34,7 @@ import { CabinEntryHint } from "./CabinEntryHint";
 import { useCabinState } from "./CabinStateContext";
 import { CabinInterior } from "./CabinInterior";
 import { CabinTitleCard } from "./CabinTitleCard";
+import { ChimneySmoke } from "./ChimneySmoke";
 import { useCompositionMode } from "./CompositionModeContext";
 import { LayoutGuide } from "./LayoutGuide";
 import { SnowLayer } from "./SnowLayer";
@@ -117,6 +120,15 @@ const frontWallVariants: Variants = {
   open: { opacity: 0 },
 };
 
+// Chimney smoke belongs to the closed exterior: it clears quickly as the
+// cabin starts to open (ahead of the exterior's own fade) and is unmounted
+// once it's open.
+const smokeVariants: Variants = {
+  closed: { opacity: 1 },
+  opening: { opacity: 0, transition: { duration: REVEAL_DURATION * 0.25, ease: REVEAL_EASE } },
+  open: { opacity: 0 },
+};
+
 const interiorVariants: Variants = {
   closed: { opacity: 0 },
   opening: {
@@ -131,6 +143,8 @@ const interiorVariants: Variants = {
 // back to bring them back.
 const BIRDS_ENABLED = false;
 const AIRPLANE_ENABLED = false;
+// The house sign is hidden for now too; its art and placement stay put.
+const HOUSE_SIGN_ENABLED = false;
 
 // Debug-only: each category's count, plus the shared drift speed.
 function cloudSummary(clouds: CloudSpec[]): string {
@@ -343,18 +357,34 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     </>
   );
 
+  // The first thing in the cabin's art group, behind all of its art, so the
+  // puffs come out from behind the chimney cap. Closed exterior only; none
+  // at all for reduced motion.
+  const chimneySmoke = !reducedMotion && cabinState !== "open" && (
+    <motion.div
+      className="pointer-events-none absolute inset-0"
+      initial={initialCabinState}
+      animate={cabinState}
+      variants={smokeVariants}
+    >
+      <ChimneySmoke x={CHIMNEY_SMOKE_ORIGIN.x} y={CHIMNEY_SMOKE_ORIGIN.y} frozen={frozen} />
+    </motion.div>
+  );
+
   // Everything in front of the outdoors.
   const foreground = (
     <>
-      <motion.div
-        className="absolute"
-        style={{ left: houseSign.x, top: houseSign.y }}
-        initial={initialCabinState}
-        animate={cabinState}
-        variants={signVariants}
-      >
-        <ArtAsset asset={ASSETS.houseSign} />
-      </motion.div>
+      {HOUSE_SIGN_ENABLED && (
+        <motion.div
+          className="absolute"
+          style={{ left: houseSign.x, top: houseSign.y }}
+          initial={initialCabinState}
+          animate={cabinState}
+          variants={signVariants}
+        >
+          <ArtAsset asset={ASSETS.houseSign} />
+        </motion.div>
+      )}
 
       {layout.mode === "portrait" ? (
         <motion.div
@@ -364,6 +394,8 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
           animate={cabinState}
           variants={cabinGroupVariants as Variants}
         >
+          {chimneySmoke}
+
           <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={interiorVariants}>
             <CabinInterior isOpen={cabinState === "open"} />
           </motion.div>
@@ -384,7 +416,7 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
             className="absolute inset-0 cursor-pointer border-0 bg-white/0 transition-colors duration-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
           />
 
-          {cabinState === "closed" && <CabinEntryHint x={doorHintX} y={doorHintY} />}
+          {cabinState === "closed" && <CabinEntryHint x={doorHintX} y={doorHintY} scale={DOOR_HINT_SCALE} />}
         </motion.div>
       ) : (
         <div
@@ -413,6 +445,8 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
             animate={cabinState}
             variants={artGroupScaleVariants as Variants}
           >
+            {chimneySmoke}
+
             <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={interiorVariants}>
               <CabinInterior isOpen={cabinState === "open"} />
             </motion.div>
@@ -433,7 +467,7 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
               className="absolute inset-0 cursor-pointer border-0 bg-white/0 transition-colors duration-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
             />
 
-            {cabinState === "closed" && <CabinEntryHint x={doorHintX} y={doorHintY} />}
+            {cabinState === "closed" && <CabinEntryHint x={doorHintX} y={doorHintY} scale={DOOR_HINT_SCALE} />}
           </motion.div>
         </div>
       )}

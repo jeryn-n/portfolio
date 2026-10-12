@@ -3,7 +3,7 @@ import { AppProviders } from "@/components/providers/AppProviders";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "imjeryn",
+  title: "Jeryn's House",
   description: "An interactive pixel-art portfolio.",
 };
 

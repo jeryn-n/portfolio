@@ -33,9 +33,17 @@ export const CABIN_INTERIOR_LAYOUT = {
   fireplace: { x: 235, y: 390, width: 170, height: 170 },
 };
 
-// The door-hint exclamation sits roughly where a door handle would be, as a
-// fraction of the cabin box, so it moves/scales correctly in both modes.
-export const DOOR_HINT_RATIO = { x: 0.6, y: 0.65 };
+// The door-hint exclamation sits beside the door, as a fraction of the cabin
+// box, so it moves/scales correctly in both modes. Written as cabin-local px
+// over the box size. It renders at DOOR_HINT_SCALE of its design size,
+// shrunk around its own centre.
+export const DOOR_HINT_RATIO = { x: 340 / CABIN_WIDTH, y: 449 / CABIN_HEIGHT };
+export const DOOR_HINT_SCALE = 0.855;
+
+// The mouth of the exterior art's chimney (cap spans x 125-204, top at
+// y 75), in cabin-local px. Smoke starts just behind the cap, so each puff
+// emerges from the chimney rather than appearing in front of it.
+export const CHIMNEY_SMOKE_ORIGIN = { x: 165, y: 88 };
 
 // The exterior environment (sky, mountains, foothills + back trees, ground +
 // front trees) is one 1920x1620 master, taller than either stage's aspect
@@ -187,19 +195,25 @@ export type SceneLayout = DesktopLayout | PortraitLayout;
 // closed/open); closedArtScale is how much smaller the closed art renders
 // inside that stable shell.
 //
-// The shell spans stage y 160-880. The cabin's base sits at 880 in both
-// states; the open roof (y 160) and the base both stay clear of the
-// viewport-fixed nav arrows even in a short, wide browser window.
+// The shell is 768x864 (shellScale 1.2) and spans stage y 51-915; in a
+// short, wide window the open roof is allowed to crop slightly. The cabin's
+// base sits at 915 in both states; the closed art (69% of the shell,
+// 530x596) spans y 319-915. The title card sits on the open roof and the
+// house sign at the closed cabin's right edge (currently hidden -- see
+// HOUSE_SIGN_ENABLED in CabinScene).
+const DESKTOP_CABIN_SHELL_SCALE = 1.2;
+const DESKTOP_CABIN_BASE_Y = 915;
+
 export const DESKTOP_LAYOUT: DesktopLayout = {
   mode: "desktop",
   stageWidth: DESKTOP_STAGE_WIDTH,
   stageHeight: DESKTOP_STAGE_HEIGHT,
   exterior: { scale: DESKTOP_STAGE_WIDTH / EXTERIOR_ART_WIDTH, x: 0, y: -320 },
   cabinX: 960 - CABIN_WIDTH / 2,
-  cabinY: 160,
-  cabinArt: { shellScale: 1, closedArtScale: 0.773 },
-  houseSign: { x: 1172, y: 730 },
-  titleCard: { x: 960 - ASSETS.titleCard.designWidth / 2, y: 180 },
+  cabinY: DESKTOP_CABIN_BASE_Y - CABIN_HEIGHT * DESKTOP_CABIN_SHELL_SCALE,
+  cabinArt: { shellScale: DESKTOP_CABIN_SHELL_SCALE, closedArtScale: 0.695 },
+  houseSign: { x: 1200, y: 745 },
+  titleCard: { x: 960 - ASSETS.titleCard.designWidth / 2, y: 75 },
   cloudScale: 0.86,
   cloudSpeed: 8,
   // The desktop crop starts at art y 320, so the ridge lands around stage y

@@ -101,10 +101,79 @@ body {
   transition: opacity 300ms linear;
 }
 
+/* Chimney smoke: each puff climbs from the chimney mouth in a steady column,
+   swelling as it goes, leaning further left (the wind) the higher it gets,
+   and fanning out to its own side (--smoke-spread) so the column widens
+   towards the top. It stays solid nearly all the way and only fades in the
+   last stretch, by which point it has normally risen off the screen. */
+@keyframes smoke-rise {
+  0% {
+    transform: translate3d(var(--smoke-jitter, 0px), 0, 0) scale(var(--smoke-start-scale, 0.3));
+    opacity: 0;
+  }
+  8% {
+    opacity: var(--smoke-opacity, 0.75);
+  }
+  35% {
+    transform: translate3d(
+        calc(var(--smoke-jitter, 0px) + var(--smoke-lean, -270px) * 0.12 + var(--smoke-spread, 0px) * 0.15),
+        calc(var(--smoke-rise, 900px) * -0.36),
+        0
+      )
+      scale(0.68);
+  }
+  70% {
+    transform: translate3d(
+        calc(var(--smoke-jitter, 0px) + var(--smoke-lean, -270px) * 0.45 + var(--smoke-spread, 0px) * 0.7),
+        calc(var(--smoke-rise, 900px) * -0.72),
+        0
+      )
+      scale(0.88);
+  }
+  85% {
+    opacity: calc(var(--smoke-opacity, 0.75) * 0.75);
+  }
+  100% {
+    transform: translate3d(
+        calc(var(--smoke-jitter, 0px) + var(--smoke-lean, -270px) + var(--smoke-spread, 0px)),
+        calc(var(--smoke-rise, 900px) * -1),
+        0
+      )
+      scale(1);
+    opacity: 0;
+  }
+}
+
+/* Centred on the chimney mouth. A chunky pixel-art puff, Minecraft-style: a
+   stepped 12x12 pixel circle (the mask), in a flat shade with its bottom
+   third a touch darker for a little blocky depth. --smoke-size is the puff's
+   final size; the animation only ever scales it down from there, which keeps
+   the stepped edges crisp. */
+.smoke-puff {
+  position: absolute;
+  left: calc(var(--smoke-size, 160px) / -2);
+  top: calc(var(--smoke-size, 160px) / -2);
+  width: var(--smoke-size, 160px);
+  height: var(--smoke-size, 160px);
+  background: linear-gradient(
+    to bottom,
+    var(--smoke-color, #d3d8de) 66.667%,
+    color-mix(in srgb, var(--smoke-color, #d3d8de) 90%, #5b6573) 66.667%
+  );
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h4v12H4zM2 1h8v10H2zM1 2h10v8H1zM0 4h12v4H0z'/%3E%3C/svg%3E");
+  mask-size: 100% 100%;
+  mask-repeat: no-repeat;
+  opacity: 0;
+  animation-name: smoke-rise;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
 /* Set on a particle layer whose motion must hold still -- see
    useEnvironmentMotion. This freezes the particles in place; it does not
    hide them. */
 .env-frozen .snow-flake,
-.env-frozen .flyer-sprite {
+.env-frozen .flyer-sprite,
+.env-frozen .smoke-puff {
   animation-play-state: paused;
 }
