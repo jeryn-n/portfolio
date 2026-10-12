@@ -211,7 +211,7 @@ export const DESKTOP_LAYOUT: DesktopLayout = {
   exterior: { scale: DESKTOP_STAGE_WIDTH / EXTERIOR_ART_WIDTH, x: 0, y: -320 },
   cabinX: 960 - CABIN_WIDTH / 2,
   cabinY: DESKTOP_CABIN_BASE_Y - CABIN_HEIGHT * DESKTOP_CABIN_SHELL_SCALE,
-  cabinArt: { shellScale: DESKTOP_CABIN_SHELL_SCALE, closedArtScale: 0.575 },
+  cabinArt: { shellScale: DESKTOP_CABIN_SHELL_SCALE, closedArtScale: 0.8 },
   houseSign: { x: 1200, y: 745 },
   titleCard: { x: 960 - ASSETS.titleCard.designWidth / 2, y: 75 },
   cloudScale: 0.86,
