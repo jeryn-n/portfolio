@@ -202,7 +202,7 @@ export type SceneLayout = DesktopLayout | PortraitLayout;
 // house sign at the closed cabin's right edge (currently hidden -- see
 // HOUSE_SIGN_ENABLED in CabinScene).
 const DESKTOP_CABIN_SHELL_SCALE = 1.2;
-const DESKTOP_CABIN_BASE_Y = 915;
+const DESKTOP_CABIN_BASE_Y = 900;
 
 export const DESKTOP_LAYOUT: DesktopLayout = {
   mode: "desktop",
@@ -211,7 +211,7 @@ export const DESKTOP_LAYOUT: DesktopLayout = {
   exterior: { scale: DESKTOP_STAGE_WIDTH / EXTERIOR_ART_WIDTH, x: 0, y: -320 },
   cabinX: 960 - CABIN_WIDTH / 2,
   cabinY: DESKTOP_CABIN_BASE_Y - CABIN_HEIGHT * DESKTOP_CABIN_SHELL_SCALE,
-  cabinArt: { shellScale: DESKTOP_CABIN_SHELL_SCALE, closedArtScale: 0.695 },
+  cabinArt: { shellScale: DESKTOP_CABIN_SHELL_SCALE, closedArtScale: 0.575 },
   houseSign: { x: 1200, y: 745 },
   titleCard: { x: 960 - ASSETS.titleCard.designWidth / 2, y: 75 },
   cloudScale: 0.86,
@@ -247,7 +247,7 @@ export const PORTRAIT_LAYOUT: PortraitLayout = {
     y: 0,
   },
   cabinX: 540 - CABIN_WIDTH / 2,
-  cabinY: 680,
+  cabinY: 700,
   cabinScale: { closedScale: 1, openScale: 1.3 },
   titleCardX: 540 - ASSETS.titleCard.designWidth / 2,
   titleCardOffsetFromCabinY: -356,

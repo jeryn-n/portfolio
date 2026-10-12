@@ -16,6 +16,8 @@ const GRAMOPHONE_HINT_DURATION_MS = 8000;
 
 // Shift the hint slightly right/down from the gramophone's own anchor point.
 const GRAMOPHONE_HINT_SHIFT = { x: 0.1, y: 0.05 };
+// Half the exclamation's design size, shrunk around its own centre.
+const GRAMOPHONE_HINT_SCALE = 0.5;
 
 const HOTSPOT_HOVER = { scale: 1.03 };
 const HOTSPOT_TAP = { scale: 0.95 };
@@ -280,6 +282,7 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
           y={gramophoneHintY}
           ariaLabel="Hint: try the gramophone"
           bouncePattern={singleBouncePattern}
+          scale={GRAMOPHONE_HINT_SCALE}
         />
       )}
     </div>
