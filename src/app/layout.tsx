@@ -9,9 +9,18 @@ import "./globals.css";
 // the font-pixel-label utility.
 const pixelLabel = Silkscreen({ subsets: ["latin"], weight: "700", variable: "--next-font-pixel-label" });
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Jeryn's House",
-  description: "An interactive pixel-art portfolio.",
+  description:
+    "An interactive portfolio.",
+  openGraph: {
+    title: "Jeryn's House",
+    description:
+      "An interactive portfolio.",
+    url: "https://imjeryn.com",
+    siteName: "Jeryn's House'",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

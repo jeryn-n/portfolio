@@ -41,9 +41,9 @@ export const SITE: SiteData = {
   resumeUrl: "/resume.pdf",
   about: {
     paragraphs: [
-      "Hi, I’m Jeryn! I am a creative consultant studying Information Systems and Media at UC Irvine. I like working at the intersection of technology, media, design, and storytelling, whether that means building an interactive product, developing a visual experience, producing media, or approaching a creative problem strategically.",
-      "I’m most interested in work that combines analytical thinking with creativity. Across my projects, I try to make things that are useful, memorable, and genuinely enjoyable to interact with.",
-      "Also, I designed everything on this website! Not a pixel of AI.",
+      "Hi, I’m Jeryn! I am a creative technologist studying Information Systems and Media at UC Irvine. I like working at the intersection of tech, media, design, and storytelling, whether that means building an interactive product, developing a visual experience, producing media, or approaching a creative problem strategically.",
+      "I’m most interested in work that combines analytical thinking with creativity. Across my projects, I try to make things that are useful, memorable, and enjoyable to interact with.",
+      "P.S. I designed everything on this website! You will find no AI here.",
     ],
   },
   education: {

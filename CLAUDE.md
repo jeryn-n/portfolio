@@ -93,7 +93,7 @@ instead -- narrow pixel-cut navy tabs tucked into the top/bottom viewport edge
 that slide 5px in on hover/focus; portrait keeps the arrows. Detail pages own
 their touch/scroll (`overscroll-contain`, `touch-action: pan-y`, and the
 world's gestures only run while the pathname is `/`) and autoplay their
-carousel every 6s until the first interaction. Their shared
+carousel every 10s until the first interaction. Their shared
 closed/opening/open state comes from `CabinStateContext`, which is lifted
 above `SceneStage` so both the stage content and the viewport UI can read it.
 

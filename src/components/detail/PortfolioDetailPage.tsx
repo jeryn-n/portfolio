@@ -21,14 +21,14 @@ import { SkillTile } from "./SkillTile";
 // Internal carousel: horizontal travel for the media, cross-fade for the
 // text. Conservative swipe threshold so a vertical page scroll on mobile is
 // never mistaken for a slide change.
-const SLIDE_DURATION = 0.3;
+const SLIDE_DURATION = 0.45;
 const SLIDE_EASE: [number, number, number, number] = [0.4, 0, 0.2, 1];
-const TEXT_FADE_DURATION = 0.15;
+const TEXT_FADE_DURATION = 0.22;
 const SWIPE_THRESHOLD = 60;
 
 // Slideshow autoplay: one slide every AUTOPLAY_INTERVAL_MS, from the moment
 // the entry opens until the visitor does anything at all (see DetailContent).
-const AUTOPLAY_INTERVAL_MS = 6000;
+const AUTOPLAY_INTERVAL_MS = 10000;
 
 // Custom is the travel direction: +1 advancing (old exits left, new enters
 // from the right), -1 going back. No overshoot anywhere.
@@ -184,7 +184,7 @@ function DetailContent({ entry }: { entry: PortfolioEntry }) {
 
   // Autoplay: a fresh timer per slide, so it restarts after every transition
   // (manual or automatic) and can never fire during one -- the slide animation
-  // is 0.3s, the interval 6s. It goes through step(), the same path as the
+  // is 0.45s, the interval 10s. It goes through step(), the same path as the
   // arrows and the keyboard, so the slide and text animations are exactly the
   // manual ones. A hidden tab holds the slide (the timer just re-arms), and
   // reduced motion switches it off entirely. The effect's cleanup clears the
