@@ -4,15 +4,16 @@ import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { useWorldScene, type Scene } from "@/components/scenes/WorldSceneContext";
-import { SITE } from "@/data/site";
+import { PROJECTS_ENABLED, SITE } from "@/data/site";
 import { useSiteUI } from "./SiteUIProvider";
 
 type MenuItemKind = "home" | "experience" | "projects" | "about" | "resume";
 
+// Projects is left out while it's hidden (see PROJECTS_ENABLED).
 const MENU_ITEMS: Array<{ label: string; kind: MenuItemKind }> = [
   { label: "Home", kind: "home" },
   { label: "Experience", kind: "experience" },
-  { label: "Projects", kind: "projects" },
+  ...(PROJECTS_ENABLED ? [{ label: "Projects", kind: "projects" as const }] : []),
   { label: "About", kind: "about" },
   { label: "Resume", kind: "resume" },
 ];

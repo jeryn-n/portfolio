@@ -13,11 +13,10 @@ import {
   CABIN_HEIGHT,
   CABIN_WIDTH,
   CHIMNEY_SMOKE_ORIGIN,
-  DOOR_HINT_RATIO,
-  DOOR_HINT_SCALE,
-  getCabinBaseY,
+  DOOR_HINT,
   getOpenCabinBox,
   getSceneLayout,
+  getZoomFocusY,
   type CloudKind,
   type ExteriorCrop,
 } from "@/lib/layout";
@@ -34,6 +33,7 @@ import { CabinEntryHint } from "./CabinEntryHint";
 import { useCabinState } from "./CabinStateContext";
 import { CabinInterior } from "./CabinInterior";
 import { CabinTitleCard } from "./CabinTitleCard";
+import { LanternGlow, RegisteredCabinArt } from "./RegisteredCabinObject";
 import { ChimneySmoke } from "./ChimneySmoke";
 import { useCompositionMode } from "./CompositionModeContext";
 import { LayoutGuide } from "./LayoutGuide";
@@ -44,16 +44,13 @@ import { useEnvironmentMotion } from "./useEnvironmentMotion";
 // outdoors is still alive while attention has moved indoors.
 const OPEN_CLOUD_SPEED_FACTOR = 0.6;
 
-// Door hint position, in cabin-local coordinates -- moves/scales correctly
-// with the cabin in both composition modes since it's a fraction of the box.
-const doorHintX = CABIN_WIDTH * DOOR_HINT_RATIO.x;
-const doorHintY = CABIN_HEIGHT * DOOR_HINT_RATIO.y;
-
-// Opening parallax: the outdoors zooms in a little as the cabin opens, each
-// terrain depth by a little more than the one behind it. The cabin's own,
-// much larger growth makes it the closest layer of all. Every zoom grows
-// from the cabin's base, so the ground at its feet stays put.
-const PARALLAX_ZOOM = { sky: 1.02, mountains: 1.04, foothills: 1.06, ground: 1.08 };
+// Opening parallax: the outdoors zooms in as the cabin opens, each terrain
+// depth clearly more than the one behind it -- the sky not at all, the
+// ground most. The cabin's own, much larger growth (x1.28 desktop, x1.3
+// portrait) keeps it the closest layer of all. Every zoom, the cabin's
+// included, grows from one point near the cabin's base (getZoomFocusY), so
+// it reads as the camera moving into the scene.
+const PARALLAX_ZOOM = { sky: 1, mountains: 1.025, foothills: 1.065, ground: 1.11 };
 type ParallaxDepth = keyof typeof PARALLAX_ZOOM;
 
 function parallaxVariants(scale: number): Variants {
@@ -105,9 +102,19 @@ const signVariants: Variants = {
   open: { opacity: 0 },
 };
 
+// The reveal is layered, never a cross-fade: the interior turns fully
+// opaque first, hidden under the still-opaque exterior and front wall (its
+// silhouette sits entirely inside theirs), and only then do those two
+// dissolve over it -- so the cabin is solid at every frame and the outdoors
+// can only ever show through the interior's own windows.
+const INTERIOR_READY = REVEAL_DURATION * 0.1;
+
 const exteriorShellVariants: Variants = {
   closed: { opacity: 1 },
-  opening: { opacity: 0, transition: { duration: REVEAL_DURATION * 0.5, ease: REVEAL_EASE } },
+  opening: {
+    opacity: 0,
+    transition: { duration: REVEAL_DURATION * 0.5, delay: INTERIOR_READY, ease: REVEAL_EASE },
+  },
   open: { opacity: 0 },
 };
 
@@ -120,21 +127,9 @@ const frontWallVariants: Variants = {
   open: { opacity: 0 },
 };
 
-// Chimney smoke belongs to the closed exterior: it clears quickly as the
-// cabin starts to open (ahead of the exterior's own fade) and is unmounted
-// once it's open.
-const smokeVariants: Variants = {
-  closed: { opacity: 1 },
-  opening: { opacity: 0, transition: { duration: REVEAL_DURATION * 0.25, ease: REVEAL_EASE } },
-  open: { opacity: 0 },
-};
-
 const interiorVariants: Variants = {
   closed: { opacity: 0 },
-  opening: {
-    opacity: 1,
-    transition: { duration: REVEAL_DURATION * 0.5, delay: REVEAL_DURATION * 0.4, ease: REVEAL_EASE },
-  },
+  opening: { opacity: 1, transition: { duration: INTERIOR_READY, ease: "linear" } },
   open: { opacity: 1 },
 };
 
@@ -145,6 +140,9 @@ const BIRDS_ENABLED = false;
 const AIRPLANE_ENABLED = false;
 // The house sign is hidden for now too; its art and placement stay put.
 const HOUSE_SIGN_ENABLED = false;
+// So is the separate roof title card: the name and title now sit on the
+// sign drawn into the interior art (see CabinInterior).
+const TITLE_CARD_ENABLED = false;
 
 // Debug-only: each category's count, plus the shared drift speed.
 function cloudSummary(clouds: CloudSpec[]): string {
@@ -282,8 +280,10 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     );
   }
 
-  // Parallax zoom origin: the cabin's base, as a fraction of the stage.
-  const parallaxOrigin = `50% ${(getCabinBaseY(layout) / layout.stageHeight) * 100}%`;
+  // Parallax zoom origin: the opening zoom's shared focus point near the
+  // cabin's base, as a fraction of the stage.
+  const zoomFocusY = getZoomFocusY(layout);
+  const parallaxOrigin = `50% ${(zoomFocusY / layout.stageHeight) * 100}%`;
 
   function renderDepth(depth: ParallaxDepth, children: ReactNode) {
     return (
@@ -321,14 +321,20 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
   // once by shellScale, never animated between states). Only the art group
   // inside it resizes -- it renders at closedArtScale while closed and
   // scales up to exactly 100% of the shell as it opens, from a 50%/100%
-  // (bottom-center) transform-origin, so it grows upward and outward from a
-  // fixed base with no manual offset math.
+  // (bottom-center) transform-origin, so it grows upward and outward from
+  // its base. It also travels down by openOffsetY stage px (shell px here,
+  // hence the divide) on the same timing, which leaves the closed cabin
+  // where it was.
   const artGroupScaleVariants: Variants | undefined =
     layout.mode === "desktop"
       ? {
-          closed: { scale: layout.cabinArt.closedArtScale },
-          opening: { scale: 1, transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE } },
-          open: { scale: 1 },
+          closed: { scale: layout.cabinArt.closedArtScale, y: 0 },
+          opening: {
+            scale: 1,
+            y: layout.cabinArt.openOffsetY / layout.cabinArt.shellScale,
+            transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE },
+          },
+          open: { scale: 1, y: layout.cabinArt.openOffsetY / layout.cabinArt.shellScale },
         }
       : undefined;
 
@@ -358,17 +364,25 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
   );
 
   // The first thing in the cabin's art group, behind all of its art, so the
-  // puffs come out from behind the chimney cap. Closed exterior only; none
-  // at all for reduced motion.
-  const chimneySmoke = !reducedMotion && cabinState !== "open" && (
-    <motion.div
-      className="pointer-events-none absolute inset-0"
-      initial={initialCabinState}
-      animate={cabinState}
-      variants={smokeVariants}
-    >
+  // puffs come out from behind the chimney cap (the interior's has one too).
+  // It belongs to the cabin, not the world behind it: it grows and moves with
+  // the art group through the opening zoom and keeps rising once the cabin is
+  // open. None at all for reduced motion.
+  const chimneySmoke = !reducedMotion && (
+    <div className="pointer-events-none absolute inset-0">
       <ChimneySmoke x={CHIMNEY_SMOKE_ORIGIN.x} y={CHIMNEY_SMOKE_ORIGIN.y} frozen={frozen} />
-    </motion.div>
+    </div>
+  );
+
+  // The closed exterior: its art, the lantern's pulsing glow, then the
+  // lantern itself on top (it never moves). All three are the same 640x720
+  // canvas, and the whole thing fades out as the cabin opens.
+  const exteriorArt = (
+    <>
+      <ArtAsset asset={ASSETS.cabinExterior} />
+      <LanternGlow asset={ASSETS.cabinLanternGlow} />
+      <RegisteredCabinArt asset={ASSETS.cabinLantern} />
+    </>
   );
 
   // Everything in front of the outdoors.
@@ -400,12 +414,15 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
             <CabinInterior isOpen={cabinState === "open"} />
           </motion.div>
 
-          <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={frontWallVariants}>
+          {/* The two cover layers never take pointer events: once they've
+              dissolved they'd otherwise still sit on top of the interior and
+              swallow every click meant for it. */}
+          <motion.div className="pointer-events-none absolute inset-0" initial={initialCabinState} animate={cabinState} variants={frontWallVariants}>
             <ArtAsset asset={ASSETS.cabinFrontWall} />
           </motion.div>
 
-          <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={exteriorShellVariants}>
-            <ArtAsset asset={ASSETS.cabinExterior} />
+          <motion.div className="pointer-events-none absolute inset-0" initial={initialCabinState} animate={cabinState} variants={exteriorShellVariants}>
+            {exteriorArt}
           </motion.div>
 
           <button
@@ -413,10 +430,10 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
             aria-label="Enter the cabin"
             onClick={handleEnter}
             disabled={cabinState !== "closed"}
-            className="absolute inset-0 cursor-pointer border-0 bg-white/0 transition-colors duration-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
+            className="absolute inset-0 cursor-pointer border-0 bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
           />
 
-          {cabinState === "closed" && <CabinEntryHint x={doorHintX} y={doorHintY} scale={DOOR_HINT_SCALE} />}
+          {cabinState === "closed" && <CabinEntryHint x={DOOR_HINT.x} y={DOOR_HINT.y} scale={DOOR_HINT.scale} />}
         </motion.div>
       ) : (
         <div
@@ -451,12 +468,13 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
               <CabinInterior isOpen={cabinState === "open"} />
             </motion.div>
 
-            <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={frontWallVariants}>
+            {/* Never pointer targets -- see the portrait group above. */}
+            <motion.div className="pointer-events-none absolute inset-0" initial={initialCabinState} animate={cabinState} variants={frontWallVariants}>
               <ArtAsset asset={ASSETS.cabinFrontWall} />
             </motion.div>
 
-            <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={exteriorShellVariants}>
-              <ArtAsset asset={ASSETS.cabinExterior} />
+            <motion.div className="pointer-events-none absolute inset-0" initial={initialCabinState} animate={cabinState} variants={exteriorShellVariants}>
+              {exteriorArt}
             </motion.div>
 
             <button
@@ -464,10 +482,10 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
               aria-label="Enter the cabin"
               onClick={handleEnter}
               disabled={cabinState !== "closed"}
-              className="absolute inset-0 cursor-pointer border-0 bg-white/0 transition-colors duration-300 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
+              className="absolute inset-0 cursor-pointer border-0 bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
             />
 
-            {cabinState === "closed" && <CabinEntryHint x={doorHintX} y={doorHintY} scale={DOOR_HINT_SCALE} />}
+            {cabinState === "closed" && <CabinEntryHint x={DOOR_HINT.x} y={DOOR_HINT.y} scale={DOOR_HINT.scale} />}
           </motion.div>
         </div>
       )}
@@ -485,19 +503,21 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
         <SnowLayer enabled={!reducedMotion} frozen={frozen} />
       </motion.div>
 
-      <CabinTitleCard
-        x={titleCard.x}
-        y={titleCard.y}
-        revealed={chromeRevealed}
-        revealDelay={reducedMotion ? REDUCED_LATE_REVEAL_DELAY : LATE_REVEAL_DELAY}
-      />
+      {TITLE_CARD_ENABLED && (
+        <CabinTitleCard
+          x={titleCard.x}
+          y={titleCard.y}
+          revealed={chromeRevealed}
+          revealDelay={reducedMotion ? REDUCED_LATE_REVEAL_DELAY : LATE_REVEAL_DELAY}
+        />
+      )}
 
       <LayoutGuide
         mode={mode}
         environment={{
           snow: reducedMotion ? "off (reduced motion)" : frozen ? "paused" : "active",
           clouds: `${cloudSummary(clouds)} --×${cloudSpeedFactor} speed (${cabinState === "closed" ? "closed" : "open"})${frozen ? " -- paused" : ""}`,
-          parallax: `sky ×${PARALLAX_ZOOM.sky} / mountains ×${PARALLAX_ZOOM.mountains} / foothills ×${PARALLAX_ZOOM.foothills} / ground ×${PARALLAX_ZOOM.ground} from the cabin base (y ${getCabinBaseY(layout)})`,
+          parallax: `sky ×${PARALLAX_ZOOM.sky} / mountains ×${PARALLAX_ZOOM.mountains} / foothills ×${PARALLAX_ZOOM.foothills} / ground ×${PARALLAX_ZOOM.ground} from the zoom focus (y ${Math.round(zoomFocusY)})`,
           birds: !BIRDS_ENABLED ? "hidden (disabled for now)" : birdsSpawning ? "active" : "inactive",
           airplane: !AIRPLANE_ENABLED ? "hidden (disabled for now)" : airplaneSpawning ? "active" : "inactive",
         }}

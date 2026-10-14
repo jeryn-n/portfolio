@@ -15,6 +15,86 @@ import {
 export const CABIN_WIDTH = ASSETS.cabinExterior.designWidth;
 export const CABIN_HEIGHT = ASSETS.cabinExterior.designHeight;
 
+// The interior's registered objects. Each one's art is a full 640x720
+// overlay (see the cabin* overlays in src/data/assets.ts) that already sits
+// in place; its box here -- cabin-local px, the same surface -- is the one
+// rectangle the object is handled through:
+//   - the window its overlay is revealed through. Anything the file draws
+//     outside the box is clipped away, so the box must take in the whole
+//     object.
+//   - its hitbox.
+//   - what grows on hover/focus: by hoverScale, about transformOrigin (any
+//     CSS transform-origin, within the box) -- the edge or corner that
+//     stays put. "bottom left" grows up and right, "center" evenly.
+// Measured off the overlay files themselves: the edge an object grows from
+// sits flush with its art (the gramophone's base on the dresser, the cat's
+// underside on the seat, the banner's right edge), so it stays put to the
+// pixel, and the free edges get ~4px to spare. ?debug=layout outlines and
+// labels each box.
+//   gramophone -- on the dresser, left (art x 125-190, y 410-485). A click
+//                 only dismisses its exclamation for now -- no audio.
+//   sign       -- the board on its chains under the top beam (art x
+//                 220-420, y 155-265), opens About. The HTML name + title
+//                 sit on textBox, the board's face, and scale with it.
+//   banner     -- the navy-and-gold banner on the right wall (art x
+//                 500-545, y 355-460), opens Education.
+//   cat        -- asleep on the armchair (art x 420-523, y 496-535). Click
+//                 (or tap) bounces it. Its box reaches 12px above the art so
+//                 the bounce has headroom inside the window; the bottom edge
+//                 it grows from is unchanged.
+export interface CabinObjectBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  hoverScale: number;
+  transformOrigin: string;
+  textBox?: { x: number; y: number; width: number; height: number };
+}
+
+export const CABIN_OBJECTS = {
+  gramophone: { x: 125, y: 405, width: 70, height: 80, hoverScale: 1.05, transformOrigin: "bottom left" },
+  sign: {
+    x: 216,
+    y: 151,
+    width: 208,
+    height: 118,
+    hoverScale: 1.035,
+    transformOrigin: "center",
+    textBox: { x: 220, y: 212, width: 200, height: 50 },
+  },
+  banner: { x: 496, y: 351, width: 49, height: 113, hoverScale: 1.04, transformOrigin: "right center" },
+  cat: { x: 416, y: 484, width: 111, height: 51, hoverScale: 1.05, transformOrigin: "bottom center" },
+} satisfies Record<string, CabinObjectBounds>;
+
+// The picture frame above the fireplace. icons.png (a registered overlay)
+// draws its LinkedIn and About icons; this box is the interactive area, and
+// exactly the icon art's own bounds (x 275-364, y 335-374). A click goes to
+// whichever half it landed on -- the left half is LinkedIn, the right half
+// About Me. Neither half is drawn, and the icons don't react to hover.
+const PICTURE_FRAME = { x: 275, y: 335, width: 90, height: 40 };
+export const CABIN_ART_HOTSPOTS = {
+  pictureFrame: PICTURE_FRAME,
+  pictureFrameLeft: { ...PICTURE_FRAME, width: PICTURE_FRAME.width / 2 },
+  pictureFrameRight: {
+    ...PICTURE_FRAME,
+    x: PICTURE_FRAME.x + PICTURE_FRAME.width / 2,
+    width: PICTURE_FRAME.width / 2,
+  },
+};
+
+// The fire's glow (fire-glow.png) pulses about this point, the middle of the
+// fire (art x 290-359, y 460-524).
+export const FIRE_GLOW_ORIGIN = { x: 324, y: 492 };
+
+// The exterior lantern's glow pulses about this point, the middle of its art
+// (x 95-194, y 430-524).
+export const LANTERN_GLOW_ORIGIN = { x: 145, y: 477 };
+
+// The separate prop sprites below are switched off now that the props are
+// drawn into the interior art (see SPRITE_PROPS_ENABLED in CabinInterior);
+// their placements stay for when their interactions are revisited.
+//
 // Interior props (gramophone, cat, flag, contact frame) render at this
 // fraction of their design size, so the room reads less crowded. Positions
 // below are top-left corners of those already-scaled boxes.
@@ -23,8 +103,7 @@ export const CABIN_INTERIOR_PROP_SCALE = 0.85;
 // Approximate placements for the taller shell -- roughly the old
 // arrangement (contact frame high and central, flag on the right wall,
 // gramophone / fireplace / cat along the floor), pulled in toward the
-// middle of the room. To be re-tuned once the interior art is drawn to
-// 640x720.
+// middle of the room.
 export const CABIN_INTERIOR_LAYOUT = {
   gramophone: { x: 95, y: 420 },
   cat: { x: 418, y: 456 },
@@ -33,12 +112,15 @@ export const CABIN_INTERIOR_LAYOUT = {
   fireplace: { x: 235, y: 390, width: 170, height: 170 },
 };
 
-// The door-hint exclamation sits beside the door, as a fraction of the cabin
-// box, so it moves/scales correctly in both modes. Written as cabin-local px
-// over the box size. It renders at DOOR_HINT_SCALE of its design size,
-// shrunk around its own centre.
-export const DOOR_HINT_RATIO = { x: 340 / CABIN_WIDTH, y: 449 / CABIN_HEIGHT };
-export const DOOR_HINT_SCALE = 0.855;
+// The two exclamation hints. Each position is the top-left of the mark's
+// 48x64 design box in cabin-local px, so both stay put in both composition
+// modes; the mark then renders at its scale, shrunk around its own centre.
+// ?debug=layout outlines each one -- edit the numbers to nudge them.
+//   door       -- over the door handle, on the closed exterior (was 340,449;
+//                 moved 12 left, 8 down, then 4 back right and 3 up).
+//   gramophone -- above the gramophone's horn, on the open interior.
+export const DOOR_HINT = { x: 332, y: 454, scale: 0.855 };
+export const GRAMOPHONE_HINT = { x: 160, y: 365, scale: 0.5 };
 
 // The mouth of the exterior art's chimney (cap spans x 125-204, top at
 // y 75), in cabin-local px. Smoke starts just behind the cap, so each puff
@@ -131,12 +213,14 @@ interface CabinScaleLayout {
 // scales between closed/open. Only the art group inside it changes size:
 // it renders at closedArtScale while closed (<1, anchored at the shell's
 // bottom-center) and at exactly 100% of the shell once open, so the cabin
-// grows upward and outward from a fixed base. The interior sits in that
-// same art group, so all three art layers stay registered through the
-// cross-fade.
+// grows upward and outward from its base. The interior sits in that same
+// art group, so all three art layers stay registered through the reveal.
+// openOffsetY moves the OPEN art down by that many stage px (the closed art
+// doesn't move), travelling with the zoom.
 interface DesktopCabinArt {
   shellScale: number;
   closedArtScale: number;
+  openOffsetY: number;
 }
 
 // Desktop: nav arrows, title card, and house sign are each positioned
@@ -195,14 +279,20 @@ export type SceneLayout = DesktopLayout | PortraitLayout;
 // closed/open); closedArtScale is how much smaller the closed art renders
 // inside that stable shell.
 //
-// The shell is 768x864 (shellScale 1.2) and spans stage y 51-915; in a
-// short, wide window the open roof is allowed to crop slightly. The cabin's
-// base sits at 915 in both states; the closed art (69% of the shell,
-// 530x596) spans y 319-915. The title card sits on the open roof and the
-// house sign at the closed cabin's right edge (currently hidden -- see
-// HOUSE_SIGN_ENABLED in CabinScene).
-const DESKTOP_CABIN_SHELL_SCALE = 1.2;
-const DESKTOP_CABIN_BASE_Y = 900;
+// The shell is 822x925 (shellScale 1.284: the old 1.2, +7%). The cabin is
+// placed for the OPEN state, the one the Experience / Projects edge tabs
+// frame: the open art's visible rows (20-719 of the shell, so its middle is
+// shell row 370) are centred on the stage's vertical middle, then raised
+// DESKTOP_OPEN_CENTER_LIFT px because the cabin reads bottom-heavy. The
+// closed art (78% of the shell) keeps the same base. In a short, wide window
+// the open roof is allowed to crop slightly. The title card would sit on
+// the open roof and the house sign at the closed cabin's right edge (both
+// currently hidden -- see TITLE_CARD_ENABLED / HOUSE_SIGN_ENABLED in
+// CabinScene).
+const DESKTOP_CABIN_SHELL_SCALE = 1.284;
+const DESKTOP_CABIN_OPEN_OFFSET_Y = 45;
+const DESKTOP_CABIN_ART_MID_ROW = 370;
+const DESKTOP_OPEN_CENTER_LIFT = 15;
 
 export const DESKTOP_LAYOUT: DesktopLayout = {
   mode: "desktop",
@@ -210,8 +300,16 @@ export const DESKTOP_LAYOUT: DesktopLayout = {
   stageHeight: DESKTOP_STAGE_HEIGHT,
   exterior: { scale: DESKTOP_STAGE_WIDTH / EXTERIOR_ART_WIDTH, x: 0, y: -320 },
   cabinX: 960 - CABIN_WIDTH / 2,
-  cabinY: DESKTOP_CABIN_BASE_Y - CABIN_HEIGHT * DESKTOP_CABIN_SHELL_SCALE,
-  cabinArt: { shellScale: DESKTOP_CABIN_SHELL_SCALE, closedArtScale: 0.8 },
+  cabinY:
+    DESKTOP_STAGE_HEIGHT / 2 -
+    DESKTOP_OPEN_CENTER_LIFT -
+    DESKTOP_CABIN_OPEN_OFFSET_Y -
+    DESKTOP_CABIN_ART_MID_ROW * DESKTOP_CABIN_SHELL_SCALE,
+  cabinArt: {
+    shellScale: DESKTOP_CABIN_SHELL_SCALE,
+    closedArtScale: 0.78,
+    openOffsetY: DESKTOP_CABIN_OPEN_OFFSET_Y,
+  },
   houseSign: { x: 1200, y: 745 },
   titleCard: { x: 960 - ASSETS.titleCard.designWidth / 2, y: 75 },
   cloudScale: 0.86,
@@ -233,8 +331,8 @@ const PORTRAIT_EXTERIOR_SCALE = PORTRAIT_STAGE_HEIGHT / EXTERIOR_ART_HEIGHT;
 
 // The cabin group is anchored at its bottom-center, so cabinY is the top of
 // the UNSCALED 640x720 box and the base always sits at cabinY + 720
-// (stage y 1400), closed or open. openScale is ~30% over closedScale -- as
-// large as the open cabin can go while still fitting a narrow phone width.
+// (stage y 1420), closed or open. openScale is ~43% over closedScale (it was 1.3;
+// +10%) -- on the narrowest, tallest phones the eaves reach the screen edges.
 // The title card offset is measured from cabinY to clear the OPEN roof
 // (cabinY + 720 - 720 * openScale).
 export const PORTRAIT_LAYOUT: PortraitLayout = {
@@ -247,8 +345,8 @@ export const PORTRAIT_LAYOUT: PortraitLayout = {
     y: 0,
   },
   cabinX: 540 - CABIN_WIDTH / 2,
-  cabinY: 700,
-  cabinScale: { closedScale: 1, openScale: 1.3 },
+  cabinY: 720,
+  cabinScale: { closedScale: 1, openScale: 1.43 },
   titleCardX: 540 - ASSETS.titleCard.designWidth / 2,
   titleCardOffsetFromCabinY: -356,
   houseSignX: 812,
@@ -268,13 +366,27 @@ export function getSceneLayout(mode: CompositionMode): SceneLayout {
   return mode === "desktop" ? DESKTOP_LAYOUT : PORTRAIT_LAYOUT;
 }
 
-// Stage Y of the cabin's base. It stays put through the opening zoom in
-// both modes, and it is the point the environment's parallax zoom grows
-// from, so the ground at the cabin's feet never drifts away from it.
+// Stage Y of the CLOSED cabin's base. Portrait's base stays put through the
+// opening zoom; desktop's moves down by openOffsetY as it opens.
 export function getCabinBaseY(layout: SceneLayout): number {
   return layout.mode === "desktop"
     ? layout.cabinY + CABIN_HEIGHT * layout.cabinArt.shellScale
     : layout.cabinY + CABIN_HEIGHT;
+}
+
+// Stage Y of the one point the whole opening zoom grows from -- the cabin's
+// and every terrain layer's -- so the reveal reads as a single camera moving
+// into the scene rather than layers swelling from the screen centre.
+//
+// Growing from its base while also moving down by openOffsetY is, for the
+// cabin, exactly a zoom about a fixed point openOffsetY / (zoom - 1) above
+// its base (the move and the scale share one easing). Portrait has no
+// offset, so its point is the base itself. The terrain zooms from the same
+// point, so the ground near the cabin's feet moves with it, less far.
+export function getZoomFocusY(layout: SceneLayout): number {
+  if (layout.mode === "portrait") return getCabinBaseY(layout);
+  const cabinZoom = 1 / layout.cabinArt.closedArtScale;
+  return getCabinBaseY(layout) - layout.cabinArt.openOffsetY / (cabinZoom - 1);
 }
 
 // Stage height of the cabin sky that sits ABOVE the cabin's stage window --
@@ -287,15 +399,15 @@ export function getSkyBridgeHeight(layout: SceneLayout): number {
 }
 
 // Stage box of the fully OPEN cabin. Desktop: the shell itself (scaled by
-// shellScale from its top-center). Portrait: the group at openScale, from
-// its bottom-center.
+// shellScale from its top-center), moved down by openOffsetY. Portrait: the
+// group at openScale, from its bottom-center.
 export function getOpenCabinBox(layout: SceneLayout): { x: number; y: number; width: number; height: number } {
   const scale = layout.mode === "desktop" ? layout.cabinArt.shellScale : layout.cabinScale.openScale;
   const width = CABIN_WIDTH * scale;
   const height = CABIN_HEIGHT * scale;
   return {
     x: layout.cabinX + (CABIN_WIDTH - width) / 2,
-    y: layout.mode === "desktop" ? layout.cabinY : getCabinBaseY(layout) - height,
+    y: layout.mode === "desktop" ? layout.cabinY + layout.cabinArt.openOffsetY : getCabinBaseY(layout) - height,
     width,
     height,
   };

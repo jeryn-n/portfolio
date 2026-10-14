@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ExclamationMark } from "./ExclamationMark";
 
-const SHOW_AFTER_MS = 10000;
+const SHOW_AFTER_MS = 12500;
 
 interface CabinEntryHintProps {
   x: number;

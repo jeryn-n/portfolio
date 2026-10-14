@@ -55,13 +55,13 @@ its art row 320, so Experience parks that much further up and the cabin's
 environment clip extends upward to show its real sky rows 0-320 as the
 bridge during travel (`getSkyBridgeHeight`; zero on portrait). Experience
 entries are placed by slug and sized directly (no transforms). Each terrain layer is its own
-parallax depth (sky ×1.02 … ground ×1.08) zooming from the cabin's base
-(`getCabinBaseY`) as the cabin opens. Snow falls in front of the closed
+parallax depth (sky ×1 … ground ×1.11) zooming, like the cabin, from one
+focus point near the cabin's base (`getZoomFocusY`) as the cabin opens. Snow falls in front of the closed
 cabin and is masked out over the open cabin's box (`getOpenCabinBox`).
 
-In both modes the cabin grows from a **fixed base** (bottom-center
-transform-origin), so the opening zoom expands it upward and outward and
-never pushes it down toward the Projects arrow. On desktop, the cabin's
+In both modes the cabin grows from its **base** (bottom-center
+transform-origin), so the opening zoom expands it upward and outward; on
+desktop the open cabin also settles `cabinArt.openOffsetY` (45px) lower. On desktop, the cabin's
 640×720 logical shell is a **stable positioning surface**
 (`cabinArt.shellScale`) that never itself scales between closed and open --
 only the art group inside it resizes, from `cabinArt.closedArtScale` to
@@ -87,16 +87,41 @@ Nav arrows (Experience/Projects) are **viewport-fixed UI, not stage
 objects** — they're rendered by `ViewportNavArrows` as a sibling of the
 scaled stage div (outside its `transform`), pinned near the top/bottom of
 the real browser viewport via CSS `position: fixed` and `env(safe-area-inset-*)`,
-so they never scale or shrink with the stage/cabin. Their shared
+so they never scale or shrink with the stage/cabin. On desktop
+(aspect > 1) the cabin's Experience and Projects controls are `EdgeTab`s
+instead -- narrow pixel-cut navy tabs tucked into the top/bottom viewport edge
+that slide 5px in on hover/focus; portrait keeps the arrows. Detail pages own
+their touch/scroll (`overscroll-contain`, `touch-action: pan-y`, and the
+world's gestures only run while the pathname is `/`) and autoplay their
+carousel every 6s until the first interaction. Their shared
 closed/opening/open state comes from `CabinStateContext`, which is lifted
 above `SceneStage` so both the stage content and the viewport UI can read it.
 
 The cabin itself has its own **cabin-local 640×720 coordinate surface**
-(`CABIN_WIDTH`/`CABIN_HEIGHT`, also in `src/lib/layout.ts`). Every interior
-prop (fireplace, gramophone, cat, UCI flag, contact frame, the door-hint
-position) is positioned once against that surface and is identical in both
-modes — only the cabin group's own stage position and scale differ per
-mode, so interior geometry never needs separate mobile coordinates.
+(`CABIN_WIDTH`/`CABIN_HEIGHT`, also in `src/lib/layout.ts`). The interior is
+a base drawing (`cabin-interior.png`) plus **registered overlays** — fire glow,
+fire, gramophone, sign, icons, banner, cat — each a full 640×720 transparent canvas on
+that same surface, so every file is drawn at inset 0 with no per-file
+offset. Objects are handled through one box each in `CABIN_OBJECTS`
+(`RegisteredCabinObject`): the box is the window the overlay shows through
+(art outside it is clipped), the hitbox, and what scales on hover/focus
+about its `transformOrigin` — never the whole canvas. The sign's HTML
+name/title live inside its window so they scale with it. The sign (About),
+banner (Education), gramophone (for now it only dismisses its exclamation --
+no audio) and cat (a click/tap makes it hop once, `bounce`) are buttons; the
+fire (an animated WebP the browser loops) and `fire-glow.png` (pulsed by CSS
+keyframes of two different, random-valued lengths (opacity 90-100%, scale 95-120%); renders nothing if the file is
+absent) are only drawn. `icons.png` draws both picture-frame icons as one
+object (`PictureFrame`): the frame (`CABIN_ART_HOTSPOTS`) is split into
+two invisible click halves (the art itself has no hover effect) -- left LinkedIn, right
+About. The two exclamation hints (`DOOR_HINT`, `GRAMOPHONE_HINT`) are
+one-line positions in `layout.ts`. Chimney smoke lives in the cabin's art
+group (so it zooms with the cabin) and keeps rising while the cabin is open. All of it, and the door-hint position, is
+positioned once against that surface and is identical in both modes — only
+the cabin group's own stage position and scale differ per mode, so interior
+geometry never needs separate mobile coordinates. `?debug=layout` outlines
+and labels the object boxes and faintly shows each overlay's whole canvas.
+The old separate prop sprites are switched off (`SPRITE_PROPS_ENABLED`).
 
 ## Art & content
 
@@ -109,12 +134,16 @@ mode, so interior geometry never needs separate mobile coordinates.
   through the `ArtAsset` → `AssetPlaceholder` fallback. **Preserve that
   fallback path** — a missing or failed image must always render the
   wireframe placeholder in the same layout bounds, never a broken-image icon.
-  Keep this true in production, not just development.
+  Keep this true in production, not just development. The one exception is
+  the cabin's full-canvas registered overlays: a missing one renders nothing
+  (a cabin-sized placeholder would hide the interior), keeps its hitbox, and
+  drops its hover growth.
 
 ## Engineering
 
 - Avoid unnecessary dependencies and avoid overengineering — this project
   favors a handful of clear, direct components over configurable
   abstractions. A bug fix or small scene doesn't need a new framework layer.
-- No custom font yet; the UI palette is a small set of white/dark-blue CSS
-  variables in `globals.css`.
+- The only custom fonts are the cabin sign's Silkscreen Bold
+  (`next/font` in the root layout, `font-pixel-label`); the UI
+  palette is a small set of white/dark-blue CSS variables in `globals.css`.

@@ -3,12 +3,13 @@
 import { ArtAsset } from "@/components/art/ArtAsset";
 import { ASSETS } from "@/data/assets";
 import { PROJECT_ENTRIES } from "@/data/portfolio";
-import { PROJECTS_UNDER_CONSTRUCTION } from "@/data/site";
+import { PROJECTS_ENABLED, PROJECTS_UNDER_CONSTRUCTION } from "@/data/site";
 import { DESKTOP_STAGE_HEIGHT, DESKTOP_STAGE_WIDTH, PORTRAIT_STAGE_HEIGHT, PORTRAIT_STAGE_WIDTH } from "@/lib/stage";
 import { useDebugLayout } from "@/lib/useDebugLayout";
 import { PROJECTS_DESKTOP_CROP, PROJECTS_DESKTOP_LAYOUT, PROJECTS_PORTRAIT_CROP, PROJECTS_PORTRAIT_LAYOUT } from "@/lib/worldLayout";
 import { useCompositionMode } from "./CompositionModeContext";
 import { EntryPreview } from "./EntryPreview";
+import { useWorldScene } from "./WorldSceneContext";
 
 // The only boulder drawn so far, reused for all three entries (the
 // placements mirror it where needed).
@@ -24,23 +25,31 @@ export function ProjectsScene() {
   const placements = mode === "desktop" ? PROJECTS_DESKTOP_LAYOUT : PROJECTS_PORTRAIT_LAYOUT;
   const crop = mode === "desktop" ? PROJECTS_DESKTOP_CROP : PROJECTS_PORTRAIT_CROP;
   const background = ASSETS.projectsBackground;
+  const { scene } = useWorldScene();
+  // This scene stays mounted under the homepage either way. While Projects
+  // is hidden (see PROJECTS_ENABLED) nothing links here, so its background
+  // -- several MB -- is only requested if a visitor actually lands here (a
+  // direct /#projects URL), not on every homepage load.
+  const showBackground = PROJECTS_ENABLED || scene === "projects";
 
   return (
     <div className="absolute inset-0">
       {/* The 1920x1620 master at one uniform scale, cropped by the stage --
           see worldLayout. maxWidth: the portrait crop is wider than the
           stage, and Tailwind's preflight img cap would squeeze it. */}
-      <ArtAsset
-        asset={background}
-        style={{
-          position: "absolute",
-          left: crop.x,
-          top: crop.y,
-          width: background.designWidth * crop.scale,
-          height: background.designHeight * crop.scale,
-          maxWidth: "none",
-        }}
-      />
+      {showBackground && (
+        <ArtAsset
+          asset={background}
+          style={{
+            position: "absolute",
+            left: crop.x,
+            top: crop.y,
+            width: background.designWidth * crop.scale,
+            height: background.designHeight * crop.scale,
+            maxWidth: "none",
+          }}
+        />
+      )}
 
       {/* Temporary cover (see PROJECTS_UNDER_CONSTRUCTION): the background
           stays, dimmed, and the entries below aren't rendered at all. */}

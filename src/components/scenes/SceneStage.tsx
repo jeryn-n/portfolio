@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { createContext, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
 import { getCompositionMode, getStageSize, type CompositionMode } from "@/lib/stage";
 import { CompositionModeProvider } from "./CompositionModeContext";
 
@@ -28,12 +28,24 @@ function computeStageMetrics(viewportWidth: number, viewportHeight: number): Sta
   };
 }
 
+const StageReadyContext = createContext(false);
+
+// True once the stage has measured the viewport and rendered its scene into
+// it -- before that there is nothing of the world on the page at all. Read by
+// SceneStage's `overlay` (the homepage's first-load cover).
+export function useStageReady(): boolean {
+  return useContext(StageReadyContext);
+}
+
 interface SceneStageProps {
   children: ReactNode;
   // Rendered as a sibling of the scaled stage div, outside its transform, so
   // viewport-fixed UI (e.g. ViewportNavArrows) sits in real browser pixels
   // instead of being scaled/clipped along with the logical stage.
   viewportUI?: ReactNode;
+  // Rendered last and also outside the transform, so a `position: fixed`
+  // cover over the whole viewport really is viewport-fixed and on top.
+  overlay?: ReactNode;
 }
 
 // Picks one of two explicit composition modes from viewport aspect ratio --
@@ -42,7 +54,7 @@ interface SceneStageProps {
 // active mode is exposed via context so a single scene component can look up
 // its own mode-specific scene layout while reusing identical state/animation
 // logic and the same cabin-local coordinate system in both modes.
-export function SceneStage({ children, viewportUI }: SceneStageProps) {
+export function SceneStage({ children, viewportUI, overlay }: SceneStageProps) {
   const [metrics, setMetrics] = useState<StageMetrics | null>(null);
 
   useEffect(() => {
@@ -73,6 +85,7 @@ export function SceneStage({ children, viewportUI }: SceneStageProps) {
           debug-layout flag; it renders unconditionally (not gated behind
           `metrics`), so it needs its own Suspense boundary to prerender. */}
       <Suspense fallback={null}>{viewportUI}</Suspense>
+      <StageReadyContext.Provider value={metrics !== null}>{overlay}</StageReadyContext.Provider>
     </div>
   );
 }

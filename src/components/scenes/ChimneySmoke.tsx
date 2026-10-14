@@ -1,18 +1,19 @@
 "use client";
 
 import { useMemo, type CSSProperties } from "react";
+import { useCompositionMode } from "./CompositionModeContext";
 
 // A tall, steady column in the spirit of Minecraft campfire smoke: big,
 // chunky pixel puffs climbing slowly right off the top of the screen. Every
 // puff shares one rise time and they're evenly staggered, so a new puff
 // leaves the chimney on a steady beat: one every PUFF_DURATION / PUFF_COUNT
-// seconds (~0.8s).
-const PUFF_COUNT = 22;
+// seconds (~0.64s).
+const PUFF_COUNT = 28;
 const PUFF_DURATION = 18;
 
 // Cool greys nudged towards the scene's blues, plus near-whites -- listed
 // twice so roughly two puffs in five are the almost-white ones.
-const SHADES = ["#f2f4f7", "#e9ecf0", "#f2f4f7", "#e9ecf0", "#d3d8de", "#bcc2ca", "#a3aab4"];
+const SHADES = ["#fafbfd", "#f1f3f6", "#fafbfd", "#f1f3f6", "#dde1e6", "#cdd2d8", "#bec4cb"];
 
 // All in cabin-local px/seconds: the smoke lives in the cabin's art group, so
 // it scales with the closed cabin in both composition modes. The rise is
@@ -33,13 +34,17 @@ const SHAPE = {
   // climbs, so the column widens. Reached in full at the end of the rise; by
   // the top of a desktop screen (about halfway up) it's ~37% of this, about
   // +/-100 screen px.
-  maxSpread: 320,
-  minOpacity: 0.65,
-  maxOpacity: 0.9,
+  maxSpread: 440,
+  // Opaque at the start of a puff's life (it fades only at the very end).
+  minOpacity: 0.75,
+  maxOpacity: 1,
 };
 
+// Portrait/mobile keeps this fraction of the sideways spread.
+const PORTRAIT_SPREAD_FACTOR = 0.5;
+
 // Each puff starts at this fraction of its base size and swells to endScale.
-const START_SCALE = 0.55;
+const START_SCALE = 0.42;
 
 interface Puff {
   id: number;
@@ -62,14 +67,14 @@ function between(min: number, max: number): number {
 // delay), so the column is already full on the first frame and the beat
 // never drifts. Only each puff's look -- size, lean, shade, opacity -- is
 // randomised, never its timing.
-function createPuffs(): Puff[] {
+function createPuffs(spreadFactor: number): Puff[] {
   return Array.from({ length: PUFF_COUNT }, (_, id) => ({
     id,
     size: between(SHAPE.minSize, SHAPE.maxSize),
     endScale: between(SHAPE.minEndScale, SHAPE.maxEndScale),
     rise: between(SHAPE.minRise, SHAPE.maxRise),
     lean: -between(SHAPE.minLean, SHAPE.maxLean),
-    spread: between(-SHAPE.maxSpread, SHAPE.maxSpread),
+    spread: between(-SHAPE.maxSpread, SHAPE.maxSpread) * spreadFactor,
     jitter: between(-10, 10),
     delay: -(id / PUFF_COUNT) * PUFF_DURATION,
     opacity: between(SHAPE.minOpacity, SHAPE.maxOpacity),
@@ -85,9 +90,9 @@ interface ChimneySmokeProps {
   frozen: boolean;
 }
 
-// Chimney smoke for the closed exterior: chunky pixel puffs in greys and
-// near-whites that swell as they rise, drifting left with the wind. CSS
-// animations only, randomised once on mount (see the `smoke-rise` keyframes
+// Chimney smoke: chunky pixel puffs in greys and near-whites that swell as
+// they rise, drifting left with the wind -- on the closed exterior and the
+// open cabin alike. CSS animations only, randomised once on mount (see the `smoke-rise` keyframes
 // in globals.css), like SnowLayer. No hydration risk for the same reason: the
 // cabin scene only ever first renders on the client.
 //
@@ -95,7 +100,9 @@ interface ChimneySmokeProps {
 // behind the chimney cap.
 export function ChimneySmoke({ x, y, frozen }: ChimneySmokeProps) {
   // Randomised once, then left alone -- nothing about the puffs is state.
-  const puffs = useMemo(() => createPuffs(), []);
+  // On a phone (portrait) the column fans out half as much.
+  const spreadFactor = useCompositionMode() === "portrait" ? PORTRAIT_SPREAD_FACTOR : 1;
+  const puffs = useMemo(() => createPuffs(spreadFactor), [spreadFactor]);
 
   return (
     <div

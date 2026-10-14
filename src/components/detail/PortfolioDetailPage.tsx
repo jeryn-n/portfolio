@@ -26,6 +26,10 @@ const SLIDE_EASE: [number, number, number, number] = [0.4, 0, 0.2, 1];
 const TEXT_FADE_DURATION = 0.15;
 const SWIPE_THRESHOLD = 60;
 
+// Slideshow autoplay: one slide every AUTOPLAY_INTERVAL_MS, from the moment
+// the entry opens until the visitor does anything at all (see DetailContent).
+const AUTOPLAY_INTERVAL_MS = 6000;
+
 // Custom is the travel direction: +1 advancing (old exits left, new enters
 // from the right), -1 going back. No overshoot anywhere.
 const mediaVariants: Variants = {
@@ -152,6 +156,12 @@ function DetailContent({ entry }: { entry: PortfolioEntry }) {
   const [direction, setDirection] = useState(1);
   const slide = slides[index];
 
+  // True until the visitor first interacts with the page; then false for the
+  // rest of this mounted entry session (a different entry, or coming back to
+  // this one, mounts a fresh DetailContent and so starts a fresh session).
+  const [autoplay, setAutoplay] = useState(true);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+
   const { setAmbientMode } = useAudio();
   const { goTo } = useWorldScene();
   const { isBlockingOverlayOpen, menuOpen } = useSiteUI();
@@ -171,6 +181,44 @@ function DetailContent({ entry }: { entry: PortfolioEntry }) {
     },
     [total],
   );
+
+  // Autoplay: a fresh timer per slide, so it restarts after every transition
+  // (manual or automatic) and can never fire during one -- the slide animation
+  // is 0.3s, the interval 6s. It goes through step(), the same path as the
+  // arrows and the keyboard, so the slide and text animations are exactly the
+  // manual ones. A hidden tab holds the slide (the timer just re-arms), and
+  // reduced motion switches it off entirely. The effect's cleanup clears the
+  // pending timer, so Strict Mode's double-run and unmounting leave none.
+  useEffect(() => {
+    if (!autoplay || total <= 1) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (reducedMotion.matches) return;
+
+    let timer: ReturnType<typeof setTimeout>;
+    function arm() {
+      timer = setTimeout(() => {
+        if (document.visibilityState === "hidden" || reducedMotion.matches) arm();
+        else step(1);
+      }, AUTOPLAY_INTERVAL_MS);
+    }
+    arm();
+    return () => clearTimeout(timer);
+  }, [autoplay, index, total, step]);
+
+  // Any real interaction ends autoplay for good: a press or touch anywhere
+  // (this covers the arrows, links, buttons, swipes and drags), a click, a
+  // key (ArrowLeft/Right included), the wheel, or scrolling the page.
+  // Listeners only observe -- nothing here calls preventDefault -- and hover
+  // alone doesn't count.
+  useEffect(() => {
+    if (!autoplay) return;
+    const stop = () => setAutoplay(false);
+    const events = ["pointerdown", "click", "keydown", "wheel"] as const;
+    for (const type of events) window.addEventListener(type, stop, { capture: true, passive: true });
+    return () => {
+      for (const type of events) window.removeEventListener(type, stop, { capture: true });
+    };
+  }, [autoplay]);
 
   // Detail routes contribute no environmental ambience. Music and the
   // foley-enabled flag are untouched -- AudioProvider lives above the route
@@ -233,7 +281,18 @@ function DetailContent({ entry }: { entry: PortfolioEntry }) {
   }
 
   return (
-    <div className="h-dvh w-full overflow-x-hidden overflow-y-auto bg-paper text-ink">
+    // The page owns every touch while it's up: it's its own scroll container
+    // that keeps its overscroll to itself (nothing chains out to the
+    // viewport-locked document behind it), and it only ever pans vertically.
+    // Horizontal drags are therefore never claimed by the browser, which is
+    // what lets the carousel's swipe (below) see them in full.
+    <div
+      ref={scrollerRef}
+      onScroll={(event) => {
+        if (event.target === scrollerRef.current) setAutoplay(false);
+      }}
+      className="h-dvh w-full overflow-x-hidden overflow-y-auto overscroll-contain bg-paper text-ink [touch-action:pan-y_pinch-zoom]"
+    >
       <motion.main
         className="mx-auto flex min-h-dvh w-full max-w-[1120px] flex-col gap-4 px-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] pt-16 sm:gap-3 sm:px-8 xl:pb-4 xl:pt-8"
         initial={{ opacity: 0, scale: 0.98 }}

@@ -12,7 +12,10 @@ interface SiteUIContextValue {
   markCabinEntered: () => void;
 
   activePanel: PanelId | null;
-  openPanel: (panel: PanelId) => void;
+  // `returnTo`: the panel this one was opened from. Closing the new panel
+  // (the X, Escape or the backdrop) then reopens that one instead of leaving
+  // nothing open. Any other way of opening a panel forgets it.
+  openPanel: (panel: PanelId, options?: { returnTo?: PanelId }) => void;
   closePanel: () => void;
 
   emailPopoverOpen: boolean;
@@ -36,17 +39,22 @@ const SiteUICtx = createContext<SiteUIContextValue | null>(null);
 export function SiteUIProvider({ children }: { children: ReactNode }) {
   const [hasEnteredCabin, setHasEnteredCabin] = useState(false);
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
+  const [returnPanel, setReturnPanel] = useState<PanelId | null>(null);
   const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const markCabinEntered = useCallback(() => setHasEnteredCabin(true), []);
 
-  const openPanel = useCallback((panel: PanelId) => {
+  const openPanel = useCallback((panel: PanelId, options?: { returnTo?: PanelId }) => {
     setActivePanel(panel);
+    setReturnPanel(options?.returnTo ?? null);
     setEmailPopoverOpen(false);
     setMenuOpen(false);
   }, []);
-  const closePanel = useCallback(() => setActivePanel(null), []);
+  const closePanel = useCallback(() => {
+    setActivePanel(returnPanel);
+    setReturnPanel(null);
+  }, [returnPanel]);
 
   const toggleEmailPopover = useCallback(() => setEmailPopoverOpen((prev) => !prev), []);
   const closeEmailPopover = useCallback(() => setEmailPopoverOpen(false), []);

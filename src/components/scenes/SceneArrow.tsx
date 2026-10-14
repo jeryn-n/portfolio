@@ -15,9 +15,6 @@ interface SceneArrowProps {
   interactive: boolean;
   revealDelay: number;
   onActivate: () => void;
-  // A soft navy shade behind the arrow and its label, so they stay legible
-  // over the bright snow and clouds around the open cabin.
-  shaded?: boolean;
   debug?: boolean;
 }
 
@@ -27,15 +24,6 @@ const pulseTransition: Transition = {
   repeat: Infinity,
   ease: "easeInOut",
 };
-
-// The shade: a wide, flat ellipse of slate blue-grey centred on the screen edge
-// itself, so only its inner half shows -- a soft vignette at the top or
-// bottom of the screen rather than a badge. It holds its depth out past the
-// arrow and label, then feathers out gradually to nothing.
-const SHADE_WIDTH = 560;
-const SHADE_HEIGHT = 280;
-const SHADE_GRADIENT =
-  "radial-gradient(closest-side, rgba(71, 85, 105, 0.39), rgba(71, 85, 105, 0.365) 40%, rgba(71, 85, 105, 0.3) 55%, rgba(71, 85, 105, 0.18) 70%, rgba(71, 85, 105, 0.07) 85%, rgba(71, 85, 105, 0))";
 
 // Fade in gently (after any reveal delay), but get out of the way fast the
 // moment travel starts.
@@ -77,7 +65,6 @@ export function SceneArrow({
   interactive,
   revealDelay,
   onActivate,
-  shaded = false,
   debug = false,
 }: SceneArrowProps) {
   const edgeStyle =
@@ -101,30 +88,16 @@ export function SceneArrow({
           : { opacity: 0, y: hiddenY, transition: HIDE_TRANSITION }
       }
     >
-      {/* Inside the arrow's own layer, so it fades in and out with it; offset
-          back out to the screen edge the arrow is pinned near. */}
-      {shaded && (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 -z-10"
-          style={{
-            width: SHADE_WIDTH,
-            height: SHADE_HEIGHT,
-            background: SHADE_GRADIENT,
-            [edge]: -NAV_ARROW_VIEWPORT_OFFSET - SHADE_HEIGHT / 2,
-            translate: "-50% 0",
-          }}
-        />
-      )}
       <button
         type="button"
         aria-label={ariaLabel}
         onClick={onActivate}
         disabled={!revealed || !interactive}
         // Label on the inside, arrowhead nearest the screen edge: below the
-        // arrow at the top of the screen, above it at the bottom.
-        className={`flex ${edge === "bottom" ? "flex-col-reverse" : "flex-col"} items-center gap-1 bg-transparent p-1 ${
-          revealed && interactive ? "pointer-events-auto" : "pointer-events-none"
+        // arrow at the top of the screen, above it at the bottom. Nothing
+        // behind it -- hover just dims it and grows it a touch.
+        className={`relative isolate flex ${edge === "bottom" ? "flex-col-reverse" : "flex-col"} items-center gap-1 bg-transparent p-1 transition-[opacity,transform] duration-150 ease-out hover:scale-105 hover:opacity-80 active:scale-100 ${
+          revealed && interactive ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
         }`}
       >
         <motion.span

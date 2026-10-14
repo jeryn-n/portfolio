@@ -3,12 +3,16 @@
 import { useSearchParams } from "next/navigation";
 import { ASSETS } from "@/data/assets";
 import {
+  CABIN_ART_HOTSPOTS,
   CABIN_HEIGHT,
-  CABIN_INTERIOR_LAYOUT,
+  CABIN_OBJECTS,
   CABIN_WIDTH,
+  DOOR_HINT,
   EXTERIOR_ART_HEIGHT,
   EXTERIOR_ART_WIDTH,
+  getOpenCabinBox,
   getSceneLayout,
+  GRAMOPHONE_HINT,
 } from "@/lib/layout";
 import type { CompositionMode } from "@/lib/stage";
 
@@ -79,6 +83,44 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
     layout.mode === "portrait"
       ? { w: CABIN_WIDTH * layout.cabinScale.openScale, h: CABIN_HEIGHT * layout.cabinScale.openScale }
       : null;
+  // The interior is only ever seen open, so its cabin-local boxes are drawn
+  // where the OPEN cabin puts them (both modes).
+  const openBox = getOpenCabinBox(layout);
+  const openScale = openBox.width / CABIN_WIDTH;
+  const toStage = (box: { x: number; y: number; width: number; height: number }) => ({
+    x: openBox.x + box.x * openScale,
+    y: openBox.y + box.y * openScale,
+    width: box.width * openScale,
+    height: box.height * openScale,
+  });
+  const objects = Object.entries(CABIN_OBJECTS).map(([key, bounds]) => ({
+    key,
+    name: key[0].toUpperCase() + key.slice(1),
+    bounds,
+    rect: toStage(bounds),
+    textRect: "textBox" in bounds ? toStage(bounds.textBox) : null,
+  }));
+
+  // The exclamation hints' marks as drawn: the 48x64 design box shrunk
+  // around its centre. The gramophone's is on the open cabin; the door's is on
+  // the CLOSED one, which sits smaller (desktop) and so maps differently.
+  const hintBox = (hint: { x: number; y: number; scale: number }, frame: { x: number; y: number; scale: number }) => {
+    const w = ASSETS.uiExclamation.designWidth;
+    const h = ASSETS.uiExclamation.designHeight;
+    return {
+      x: frame.x + (hint.x + (w * (1 - hint.scale)) / 2) * frame.scale,
+      y: frame.y + (hint.y + (h * (1 - hint.scale)) / 2) * frame.scale,
+      width: w * hint.scale * frame.scale,
+      height: h * hint.scale * frame.scale,
+    };
+  };
+  const closedFrame = closedArt
+    ? { x: shellX + (shellW - closedArt.w) / 2, y: shellY + shellH - closedArt.h, scale: closedArt.w / CABIN_WIDTH }
+    : { x: shellX, y: shellY, scale: shellW / CABIN_WIDTH };
+  const hints = [
+    { key: "door hint", hint: DOOR_HINT, rect: hintBox(DOOR_HINT, closedFrame) },
+    { key: "gramophone hint", hint: GRAMOPHONE_HINT, rect: hintBox(GRAMOPHONE_HINT, { ...openBox, scale: openScale }) },
+  ];
 
   const cloudBands = [
     { kind: "very large", band: layout.clouds.large, color: "#a78bfa" },
@@ -141,19 +183,24 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
         <rect x={titleCard.x} y={titleCard.y} width={ASSETS.titleCard.designWidth} height={ASSETS.titleCard.designHeight} fill="none" stroke="#00ffff" strokeWidth="1" opacity="0.5" />
         <rect x={houseSign.x} y={houseSign.y} width={ASSETS.houseSign.designWidth} height={ASSETS.houseSign.designHeight} fill="none" stroke="#00ffff" strokeWidth="1" opacity="0.5" />
 
-        {/* CABIN-LOCAL: interior asset bounds, mapped onto the (scaled) shell */}
-        {Object.entries(CABIN_INTERIOR_LAYOUT).map(([key, val]) => {
-          const stageX = shellX + val.x * shellScale;
-          const stageY = shellY + val.y * shellScale;
-          const w = "width" in val ? val.width * shellScale : 0;
-          const h = "height" in val ? val.height * shellScale : 0;
+        {/* CABIN-LOCAL: interior hotspot bounds, on the open cabin */}
+        {Object.entries(CABIN_ART_HOTSPOTS).map(([key, val]) => (
+          <rect key={key} {...toStage(val)} fill="none" stroke="#ff00ff" strokeWidth="1" opacity="0.5" />
+        ))}
 
-          if (w === 0 || h === 0) {
-            return <circle key={key} cx={stageX} cy={stageY} r="6" fill="none" stroke="#ff00ff" strokeWidth="1" opacity="0.6" />;
-          }
+        {/* CABIN-LOCAL: registered object boxes (window + hitbox + hover
+            box), the sign's text box dotted inside its own. */}
+        {objects.map(({ key, rect, textRect }) => (
+          <g key={key} stroke="#fb923c" fill="none">
+            <rect {...rect} strokeWidth="1.5" strokeDasharray="5,3" opacity="0.9" />
+            {textRect && <rect {...textRect} strokeWidth="1" strokeDasharray="2,2" opacity="0.7" />}
+          </g>
+        ))}
 
-          return <rect key={key} x={stageX} y={stageY} width={w} height={h} fill="none" stroke="#ff00ff" strokeWidth="1" opacity="0.5" />;
-        })}
+        {/* CABIN-LOCAL: the exclamation hints' anchors (door: closed cabin) */}
+        {hints.map(({ key, rect }) => (
+          <rect key={key} {...rect} fill="none" stroke="#facc15" strokeWidth="1.5" strokeDasharray="3,2" opacity="0.9" />
+        ))}
       </svg>
 
       <div className="pointer-events-none absolute inset-0 text-[10px] text-green-400/70">
@@ -174,7 +221,9 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
           {layout.mode === "desktop" ? (
             <>
               <div className="text-yellow-300/80">CABIN LOGICAL SHELL {CABIN_WIDTH}×{CABIN_HEIGHT} -- stable, shellScale {layout.cabinArt.shellScale}</div>
-              <div className="text-blue-400/80">CABIN ART GROUP (exterior + front wall + interior) -- closed {Math.round(layout.cabinArt.closedArtScale * 100)}% → open 100% of shell, bottom-anchored</div>
+              <div className="text-blue-400/80">
+                CABIN ART GROUP (exterior + front wall + interior) -- closed {Math.round(layout.cabinArt.closedArtScale * 100)}% → open 100% of shell, bottom-anchored, open +{layout.cabinArt.openOffsetY}px down
+              </div>
             </>
           ) : (
             <div className="text-yellow-300/80">
@@ -191,7 +240,15 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
               </div>
             </>
           )}
-          <div className="text-magenta-400/80">CABIN-LOCAL -- interior props + door hint (magenta)</div>
+          <div className="text-fuchsia-400/80">
+            CABIN-LOCAL -- picture frame (magenta): the whole frame (hover area) and its left / right click halves (LinkedIn / About Me)
+          </div>
+          <div className="text-yellow-300/90">
+            CABIN-LOCAL -- exclamation hints (yellow, dashed): the door hint sits on the CLOSED cabin, the gramophone hint on the open one; DOOR_HINT / GRAMOPHONE_HINT in src/lib/layout.ts
+          </div>
+          <div className="text-orange-300/90">
+            CABIN-LOCAL -- registered objects (orange, dashed): window + hitbox + hover box, cabin px, CABIN_OBJECTS in src/lib/layout.ts; sign text box dotted; each overlay&apos;s full canvas shows faintly so art outside its box is visible
+          </div>
           <div className="text-blue-300/80">VIEWPORT UI -- Experience/Projects arrows are fixed to the real viewport, not shown on this stage SVG</div>
           {environment && (
             <>
@@ -218,17 +275,38 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
         >
           SHELL {CABIN_WIDTH}×{CABIN_HEIGHT}
         </div>
-        {Object.entries(CABIN_INTERIOR_LAYOUT).map(([key, val]) => (
+        {Object.entries(CABIN_ART_HOTSPOTS).map(([key, val]) => {
+          const rect = toStage(val);
+          // The halves are inside the whole frame: the right one's label
+          // sits below its box so the three don't overprint.
+          const below = key === "pictureFrameRight" ? rect.height : 0;
+          return (
+            <div
+              key={key}
+              className="absolute text-fuchsia-400/60"
+              style={{ left: `${(rect.x / stageW) * 100}%`, top: `${((rect.y + below) / stageH) * 100}%`, fontSize: "8px" }}
+            >
+              {key} {val.x},{val.y} {val.width}×{val.height}
+            </div>
+          );
+        })}
+        {hints.map(({ key, hint, rect }) => (
           <div
             key={key}
-            className="absolute text-magenta-400/60"
-            style={{
-              left: `${((shellX + val.x * shellScale) / stageW) * 100}%`,
-              top: `${((shellY + val.y * shellScale) / stageH) * 100}%`,
-              fontSize: "8px",
-            }}
+            className="absolute -translate-y-full whitespace-nowrap text-yellow-300/80"
+            style={{ left: `${(rect.x / stageW) * 100}%`, top: `${(rect.y / stageH) * 100}%`, fontSize: "8px" }}
           >
-            {key} {val.x},{val.y}
+            {key} {hint.x},{hint.y} ×{hint.scale}
+          </div>
+        ))}
+        {/* Each object's name, box (cabin px) and hover growth, just above its box. */}
+        {objects.map(({ key, name, bounds, rect }) => (
+          <div
+            key={key}
+            className="absolute -translate-y-full whitespace-nowrap rounded bg-black/70 px-1 text-[11px] font-semibold leading-tight text-orange-300"
+            style={{ left: `${(rect.x / stageW) * 100}%`, top: `${(rect.y / stageH) * 100}%` }}
+          >
+            {name} {bounds.x},{bounds.y} {bounds.width}×{bounds.height} · ×{bounds.hoverScale} from {bounds.transformOrigin}
           </div>
         ))}
       </div>

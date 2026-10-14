@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useAnimationControls } from "motion/react";
+import { AnimatePresence, motion, useAnimationControls } from "motion/react";
 import { useEffect, useState } from "react";
 import { ArtAsset } from "@/components/art/ArtAsset";
 import { useAudio } from "@/components/audio/AudioProvider";
@@ -8,16 +8,33 @@ import { useSiteUI } from "@/components/ui/SiteUIProvider";
 import { EmailPopover } from "@/components/ui/EmailPopover";
 import { ASSETS, type ArtAssetDef } from "@/data/assets";
 import { SITE } from "@/data/site";
-import { CABIN_INTERIOR_LAYOUT, CABIN_INTERIOR_PROP_SCALE } from "@/lib/layout";
+import { CABIN_INTERIOR_LAYOUT, CABIN_INTERIOR_PROP_SCALE, CABIN_OBJECTS, GRAMOPHONE_HINT } from "@/lib/layout";
 import { ExclamationMark, singleBouncePattern } from "./ExclamationMark";
+import { PictureFrame } from "./PictureFrame";
+import { FireGlow, RegisteredCabinArt, RegisteredCabinObject } from "./RegisteredCabinObject";
 
-// Total time the gramophone hint stays on screen before it auto-dismisses.
-const GRAMOPHONE_HINT_DURATION_MS = 8000;
+// The props are now the registered overlays below (or drawn into the
+// interior art), so the old separate prop sprites -- fireplace placeholder,
+// contact frame (+ email popover), UCI flag, gramophone (+ its music) and cat
+// (+ meows) -- and all of their interactions are switched off. Their code,
+// assets and placements stay; flip this back to bring them back (alongside
+// the overlays, they'd be drawn twice).
+const SPRITE_PROPS_ENABLED = false;
 
-// Shift the hint slightly right/down from the gramophone's own anchor point.
-const GRAMOPHONE_HINT_SHIFT = { x: 0.1, y: 0.05 };
-// Half the exclamation's design size, shrunk around its own centre.
-const GRAMOPHONE_HINT_SCALE = 0.5;
+// The sign's name is this many times taller than the face draws it.
+const NAME_STRETCH = 1.39;
+// Sign name: its size, and how far it sits below the middle of the text box
+// (cabin px). The title beneath it stays put.
+const NAME_FONT_SIZE = 17;
+const NAME_DROP = 7;
+
+// Whether the gramophone's exclamation shows at all. Off for now (undecided);
+// the mark, its placement (GRAMOPHONE_HINT) and its timing all stay.
+const GRAMOPHONE_HINT_ENABLED = false;
+
+// How long the gramophone's exclamation stays up once the cabin is open,
+// unless the gramophone is clicked first.
+const GRAMOPHONE_HINT_DURATION_MS = 19000;
 
 const HOTSPOT_HOVER = { scale: 1.03 };
 const HOTSPOT_TAP = { scale: 0.95 };
@@ -31,6 +48,8 @@ const {
   contactFrame: contactLayout,
 } = CABIN_INTERIOR_LAYOUT;
 
+const signText = CABIN_OBJECTS.sign.textBox;
+
 // Props render a little under their design size (an explicit width/height,
 // not a transform, so the hover/tap scale animations stay untouched).
 function propSize(asset: ArtAssetDef) {
@@ -42,9 +61,6 @@ function propSize(asset: ArtAssetDef) {
 
 const gramophone = ASSETS.gramophone;
 const gramophoneSize = propSize(gramophone);
-const gramophoneHintX =
-  grammyLayout.x + gramophoneSize.width / 2 - 14 + gramophoneSize.width * GRAMOPHONE_HINT_SHIFT.x;
-const gramophoneHintY = grammyLayout.y - 34 + gramophoneSize.height * GRAMOPHONE_HINT_SHIFT.y;
 const contactSize = propSize(ASSETS.contactFrame);
 
 interface InteriorHotspotProps {
@@ -168,13 +184,16 @@ interface CabinInteriorProps {
   isOpen: boolean;
 }
 
-// The wireframe composition revealed once the front wall fades away. Layout
-// is cabin-local (0,0 = top-left of the cabin's design box) and can be moved
-// by updating CABIN_INTERIOR_LAYOUT in src/lib/layout.ts -- the same values
-// apply in both desktop and portrait composition modes. Geometry will change
-// once real art defines the actual room shape. A decorative picture frame
-// will eventually sit on the left wall, baked directly into the cabin
-// artwork rather than built as its own component.
+// The open cabin: the base interior artwork, its registered object overlays
+// (fire, gramophone, sign, banner, cat), and real UI laid over the parts
+// that are interactive. Layout is cabin-local (0,0 = top-left of the cabin's
+// design box) -- the same values apply in both desktop and portrait
+// composition modes -- and comes from CABIN_OBJECTS / CABIN_ART_HOTSPOTS in
+// src/lib/layout.ts.
+//
+// Everything is inert until the cabin is fully open: during the reveal the
+// interior is already visible under the dissolving exterior, but nothing
+// here takes a click, a hover or keyboard focus yet.
 export function CabinInterior({ isOpen }: CabinInteriorProps) {
   // Cleared immediately on gramophone click, or after the timer -- whichever
   // comes first. Never restored again during this mounted cabin session.
@@ -188,11 +207,29 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
     return () => clearTimeout(timer);
   }, [isOpen]);
 
-  const showGramophoneHint = isOpen && !dismissed;
+  const showGramophoneHint = GRAMOPHONE_HINT_ENABLED && isOpen && !dismissed;
 
-  function handleGramophoneClick() {
+  // The gramophone overlay's click: audio is off for now, so all it does is
+  // put the hint away.
+  function dismissGramophoneHint() {
     setDismissed(true);
+  }
+
+  // The old gramophone sprite's click, when SPRITE_PROPS_ENABLED brings it
+  // back: dismiss the hint and toggle the music.
+  function handleGramophoneClick() {
+    dismissGramophoneHint();
     toggleMusic();
+  }
+
+  function openAbout() {
+    playSfx("click");
+    openPanel("about");
+  }
+
+  function openEducation() {
+    playSfx("click");
+    openPanel("education");
   }
 
   const emailAnchorX = contactLayout.x + contactSize.width / 2;
@@ -202,89 +239,155 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
     <div className="absolute inset-0">
       <ArtAsset asset={ASSETS.cabinInterior} />
 
-      <div
-        aria-hidden="true"
-        className="absolute flex items-center justify-center border border-dashed border-wireframe-border bg-wireframe-fill text-[10px] font-semibold uppercase tracking-wide text-paper"
-        style={{
-          left: fireplaceLayout.x,
-          top: fireplaceLayout.y,
-          width: fireplaceLayout.width,
-          height: fireplaceLayout.height,
-        }}
-      >
-        Fireplace
-      </div>
+      {/* Back to front -- which is also the Tab order of the focusable ones.
+          Objects that don't overlap can go in any order, so the sign
+          (About), the picture frame and the banner (Education) are in
+          reading order; the cat stays in front of the banner beside it. */}
+      <FireGlow asset={ASSETS.cabinFireGlow} />
+      <RegisteredCabinArt asset={ASSETS.cabinFire} />
 
-      <div
-        className="absolute"
-        style={{ left: contactLayout.x, top: contactLayout.y, ...contactSize }}
-      >
-        <ArtAsset asset={ASSETS.contactFrame} style={contactSize} />
-        <div className="absolute inset-0 flex items-center justify-center gap-8">
-          <ContactButton
-            label="Email"
-            glyph="✉"
-            disabled={!isOpen}
-            onClick={() => {
-              playSfx("click");
-              toggleEmailPopover();
-            }}
-          />
-          <ContactButton
-            label="LinkedIn"
-            glyph="in"
-            // TODO(site.ts): enable once SITE.linkedinUrl is filled in.
-            disabled={!isOpen || !SITE.linkedinUrl}
-            onClick={() => {
-              if (!SITE.linkedinUrl) return;
-              playSfx("click");
-              window.open(SITE.linkedinUrl, "_blank", "noopener,noreferrer");
-            }}
-          />
-          <ContactButton
-            label="About"
-            glyph="i"
-            disabled={!isOpen}
-            onClick={() => {
-              playSfx("click");
-              openPanel("about");
-            }}
-          />
-        </div>
-
-        <EmailPopover
-          x={emailAnchorX}
-          y={emailAnchorY}
-          open={isOpen && emailPopoverOpen}
-          onClose={closeEmailPopover}
-        />
-      </div>
-
-      <InteriorHotspot
-        asset={ASSETS.uciFlag}
-        x={flagLayout.x}
-        y={flagLayout.y}
-        label="UCI flag"
-        isOpen={isOpen}
-        onClick={() => {
-          playSfx("click");
-          openPanel("education");
-        }}
+      <RegisteredCabinObject
+        asset={ASSETS.cabinGramophone}
+        bounds={CABIN_OBJECTS.gramophone}
+        active={isOpen}
+        label="Gramophone"
+        onClick={dismissGramophoneHint}
       />
 
-      <GramophoneHotspot isOpen={isOpen} isPlaying={musicPlaying} onClick={handleGramophoneClick} />
+      {/* The sign hanging from the top beam opens About. The name and title
+          are real text on its board, inside the sign's own window, so they
+          grow with it as one object. */}
+      <RegisteredCabinObject asset={ASSETS.cabinSign} bounds={CABIN_OBJECTS.sign} active={isOpen} onClick={openAbout}>
+        <span
+          className="absolute flex select-none flex-col items-center justify-center text-white"
+          style={{ left: signText.x, top: signText.y, width: signText.width, height: signText.height }}
+        >
+          {/* A hard drop shadow, like the art's own shading -- no glow. The
+              name is stretched taller (NAME_STRETCH) rather than wider, since
+              it already spans the board; a transform doesn't move layout, so
+              the margin below makes room for the extra height. */}
+          <span
+            className="inline-block whitespace-nowrap font-pixel-label uppercase leading-none [text-shadow:0_2px_0_rgb(52_24_8/0.9)]"
+            style={{
+              fontSize: NAME_FONT_SIZE,
+              letterSpacing: "0.03em",
+              paddingLeft: "0.03em",
+              transform: `translateY(${NAME_DROP}px) scaleY(${NAME_STRETCH})`,
+              marginBottom: NAME_FONT_SIZE * (NAME_STRETCH - 1),
+            }}
+          >
+            {SITE.name}
+          </span>
+          <span
+            className="mt-[6px] whitespace-nowrap font-pixel-label uppercase leading-none [text-shadow:0_1px_0_rgb(52_24_8/0.85)]"
+            style={{ fontSize: 10, letterSpacing: "0.08em", paddingLeft: "0.08em" }}
+          >
+            {SITE.title}
+          </span>
+        </span>
+        <span className="sr-only"> — About me</span>
+      </RegisteredCabinObject>
 
-      <CatHotspot isOpen={isOpen} />
+      {/* The picture frame above the fireplace: both icons are one overlay
+          over two invisible click halves -- LinkedIn on
+          the left, About Me on the right. */}
+      <PictureFrame active={isOpen} onLinkedIn={() => playSfx("click")} onAbout={openAbout} />
 
-      {showGramophoneHint && (
-        <ExclamationMark
-          x={gramophoneHintX}
-          y={gramophoneHintY}
-          ariaLabel="Hint: try the gramophone"
-          bouncePattern={singleBouncePattern}
-          scale={GRAMOPHONE_HINT_SCALE}
-        />
+      {/* The UC Irvine banner on the right wall opens Education. */}
+      <RegisteredCabinObject
+        asset={ASSETS.cabinBanner}
+        bounds={CABIN_OBJECTS.banner}
+        active={isOpen}
+        label="UC Irvine banner — Education"
+        onClick={openEducation}
+      />
+
+      {/* A click or tap makes the cat hop once. No meow yet. */}
+      <RegisteredCabinObject
+        asset={ASSETS.cabinCat}
+        bounds={CABIN_OBJECTS.cat}
+        active={isOpen}
+        label="Pet the cat"
+        bounce
+      />
+
+      {SPRITE_PROPS_ENABLED && (
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute flex items-center justify-center border border-dashed border-wireframe-border bg-wireframe-fill text-[10px] font-semibold uppercase tracking-wide text-paper"
+            style={{
+              left: fireplaceLayout.x,
+              top: fireplaceLayout.y,
+              width: fireplaceLayout.width,
+              height: fireplaceLayout.height,
+            }}
+          >
+            Fireplace
+          </div>
+
+          <div className="absolute" style={{ left: contactLayout.x, top: contactLayout.y, ...contactSize }}>
+            <ArtAsset asset={ASSETS.contactFrame} style={contactSize} />
+            <div className="absolute inset-0 flex items-center justify-center gap-8">
+              <ContactButton
+                label="Email"
+                glyph="✉"
+                disabled={!isOpen}
+                onClick={() => {
+                  playSfx("click");
+                  toggleEmailPopover();
+                }}
+              />
+              <ContactButton
+                label="LinkedIn"
+                glyph="in"
+                disabled={!isOpen}
+                onClick={() => {
+                  playSfx("click");
+                  window.open(SITE.linkedinUrl, "_blank", "noopener,noreferrer");
+                }}
+              />
+              <ContactButton label="About" glyph="i" disabled={!isOpen} onClick={openAbout} />
+            </div>
+
+            <EmailPopover
+              x={emailAnchorX}
+              y={emailAnchorY}
+              open={isOpen && emailPopoverOpen}
+              onClose={closeEmailPopover}
+            />
+          </div>
+
+          <InteriorHotspot
+            asset={ASSETS.uciFlag}
+            x={flagLayout.x}
+            y={flagLayout.y}
+            label="UCI flag"
+            isOpen={isOpen}
+            onClick={() => {
+              playSfx("click");
+              openPanel("education");
+            }}
+          />
+
+          <GramophoneHotspot isOpen={isOpen} isPlaying={musicPlaying} onClick={handleGramophoneClick} />
+
+          <CatHotspot isOpen={isOpen} />
+        </>
       )}
+
+      {/* Fades out when its time is up or the gramophone is clicked. */}
+      <AnimatePresence>
+        {showGramophoneHint && (
+          <ExclamationMark
+            x={GRAMOPHONE_HINT.x}
+            y={GRAMOPHONE_HINT.y}
+            ariaLabel="Hint: try the gramophone"
+            bouncePattern={singleBouncePattern}
+            scale={GRAMOPHONE_HINT.scale}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

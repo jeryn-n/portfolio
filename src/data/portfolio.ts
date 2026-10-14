@@ -12,6 +12,8 @@
 // <slug>-feature-<n>.jpg for its features. Until a file exists, its
 // placeholder shows that exact filename and folder.
 
+import { SITE } from "./site";
+
 export type MediaType = "image" | "video";
 
 // A media path split into what its placeholder shows: the filename to create
@@ -84,10 +86,6 @@ export interface PortfolioEntry {
   // Shown on every slide of the entry, overview and features alike.
   externalLinks?: ExternalLink[];
 }
-
-// example.com is the IANA-reserved example domain -- an explicit placeholder
-// destination, not an invented real link.
-const PLACEHOLDER_HREF = "https://example.com";
 
 export const EXPERIENCE_ENTRIES: PortfolioEntry[] = [
   {
@@ -227,8 +225,8 @@ export const PROJECT_ENTRIES: PortfolioEntry[] = [
         title: "Github",
         image: "/portfolio/projects/project-2-feature-3.jpg",
         description: "",
-        // Placeholder destination -- swap in the real GitHub profile URL.
-        externalLinks: [{ label: "GitHub", href: PLACEHOLDER_HREF }],
+        // Feature-level link: the CTA shows only while this slide is up.
+        externalLinks: [{ label: "View GitHub", href: SITE.githubUrl }],
       },
     ],
     skills: [{ name: "Python" }, { name: "C++" }, { name: "Javascript" }, { name: "HTML" }, { name: "Git" }, { name: "AI" }],

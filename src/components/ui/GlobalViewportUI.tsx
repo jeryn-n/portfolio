@@ -1,6 +1,7 @@
 "use client";
 
 import { SoundButton } from "@/components/audio/SoundButton";
+import { SOUND_ENABLED } from "@/data/audio";
 import { AboutPanel } from "./AboutPanel";
 import { EducationPanel } from "./EducationPanel";
 import { MasterMenu } from "./MasterMenu";
@@ -17,13 +18,16 @@ import { MasterMenu } from "./MasterMenu";
 //     stage pixels.
 //
 // Deliberately NOT included: ViewportNavArrows (homepage scene travel only,
-// so it stays in page.tsx) and EmailPopover (spatially anchored to the cabin
-// mantle, so it stays cabin-local inside CabinInterior).
+// so it stays in page.tsx) and EmailPopover (spatially anchored to the cabin,
+// so it would stay cabin-local).
+//
+// The sound control is hidden while SOUND_ENABLED is off (see
+// src/data/audio.ts).
 export function GlobalViewportUI() {
   return (
     <>
       <MasterMenu />
-      <SoundButton />
+      {SOUND_ENABLED && <SoundButton />}
       <AboutPanel />
       <EducationPanel />
     </>

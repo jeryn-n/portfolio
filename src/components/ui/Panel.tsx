@@ -8,13 +8,28 @@ interface PanelProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  size?: "default" | "wide" | "square";
 }
 
-// Shared full informational panel used by About and Education. Desktop:
-// ~40-50% viewport width, capped so it never gets huge. Mobile: nearly full
-// width with a small outer margin. The world behind it stays fixed -- only
-// the backdrop + panel animate.
-export function Panel({ open, onClose, title, children }: PanelProps) {
+// Desktop sizing. default: a 4:5 sheet, ~40-50% of the viewport wide, capped
+// so it never gets huge. wide: as tall as its content, and wide enough for a
+// side-by-side photo + text layout. square: a square, as large as fits the
+// viewport's height.
+const SIZE_CLASS = {
+  default: "md:aspect-[4/5] md:h-auto md:max-h-[80dvh] md:w-[45vw] md:max-w-xl",
+  wide: "md:max-h-[85dvh] md:w-[min(52rem,calc(100vw-4rem))]",
+  square: "md:aspect-square md:w-[min(40rem,82dvh)]",
+};
+const BODY_CLASS = {
+  default: "px-4 py-4",
+  wide: "px-5 py-6 sm:px-8 sm:py-7",
+  square: "px-5 py-6 sm:px-8 sm:py-7",
+};
+
+// Shared full informational panel used by About and Education. Mobile:
+// nearly full width with a small outer margin. The world behind it stays
+// fixed -- only the backdrop + panel animate.
+export function Panel({ open, onClose, title, children, size = "default" }: PanelProps) {
   const headingId = useId();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -50,7 +65,7 @@ export function Panel({ open, onClose, title, children }: PanelProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby={headingId}
-            className="relative flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col overflow-hidden border-4 border-ink-soft bg-paper text-ink shadow-xl sm:max-h-[85dvh] md:aspect-[4/5] md:h-auto md:max-h-[80dvh] md:w-[45vw] md:max-w-xl"
+            className={`relative flex max-h-[90dvh] w-[calc(100vw-2rem)] flex-col overflow-hidden border-4 border-ink-soft bg-paper text-ink shadow-xl sm:max-h-[85dvh] ${SIZE_CLASS[size]}`}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
@@ -70,7 +85,7 @@ export function Panel({ open, onClose, title, children }: PanelProps) {
                 ×
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-4 py-4 text-sm leading-relaxed">{children}</div>
+            <div className={`flex-1 overflow-y-auto text-sm leading-relaxed ${BODY_CLASS[size]}`}>{children}</div>
           </motion.div>
         </motion.div>
       )}

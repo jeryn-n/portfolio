@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { AUDIO, type SfxKey } from "@/data/audio";
+import { AUDIO, SOUND_ENABLED, type SfxKey } from "@/data/audio";
 
 // "none" is a real mode, not an absence of one: routes outside the world
 // (portfolio detail pages) select it so no ambience plays there, while music
@@ -83,7 +83,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     safePlay(ambience);
   }, [foleyEnabled, ambientMode]);
 
+  // Both toggles are inert while SOUND_ENABLED is off, so foley can never be
+  // switched on and every sound below stays a no-op.
   const toggleMaster = useCallback(() => {
+    if (!SOUND_ENABLED) return;
     setFoleyEnabled((prev) => {
       if (!prev) return true;
       setMusicPlaying(false);
@@ -92,6 +95,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const toggleMusic = useCallback(() => {
+    if (!SOUND_ENABLED) return;
     setMusicPlaying((prev) => {
       if (prev) return false;
       setFoleyEnabled(true);

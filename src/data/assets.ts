@@ -63,6 +63,84 @@ export const ASSETS = {
     designWidth: 640,
     designHeight: 720,
   },
+
+  // Registered interior overlays, drawn over cabin-interior.png. Each is a
+  // full 640x720 canvas on the same surface, transparent except for its one
+  // object, so every file lands in place at inset 0 -- no per-file offsets.
+  // The fire is a looping animated WebP the browser plays itself. Where each
+  // object is (its window, hitbox and hover growth) is CABIN_OBJECTS in
+  // src/lib/layout.ts.
+  cabinFire: {
+    id: "cabinFire",
+    src: "/art/cabin/fire.webp",
+    label: "Fire",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  // The exterior's lantern, by the door: the lantern itself (drawn over its
+  // own glow, never moving) and the glow behind it, pulsed by LanternGlow.
+  // Both are 640x720 canvases registered on the exterior, and fade with it.
+  cabinLantern: {
+    id: "cabinLantern",
+    src: "/art/cabin/lantern.png",
+    label: "Lantern",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  cabinLanternGlow: {
+    id: "cabinLanternGlow",
+    src: "/art/cabin/lantern-glow.png",
+    label: "Lantern Glow",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  // Soft firelight around the fire: transparent but for a faint glow, pulsed
+  // irregularly by FireGlow. Not in any preload list -- if the file is absent
+  // nothing is drawn.
+  cabinFireGlow: {
+    id: "cabinFireGlow",
+    src: "/art/cabin/fire-glow.png",
+    label: "Fire Glow",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  // Both picture-frame icons (LinkedIn, About) on one canvas, grown together.
+  cabinIcons: {
+    id: "cabinIcons",
+    src: "/art/cabin/icons.png",
+    label: "Picture Frame Icons",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  cabinBanner: {
+    id: "cabinBanner",
+    src: "/art/cabin/banner.png",
+    label: "Banner",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  cabinGramophone: {
+    id: "cabinGramophone",
+    src: "/art/cabin/gramophone.png",
+    label: "Gramophone",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  cabinCat: {
+    id: "cabinCat",
+    src: "/art/cabin/cat.png",
+    label: "Cat",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  cabinSign: {
+    id: "cabinSign",
+    src: "/art/cabin/sign.png",
+    label: "Sign",
+    designWidth: 640,
+    designHeight: 720,
+  },
+
   houseSign: {
     id: "houseSign",
     src: "/art/cabin/house-sign.png",
@@ -70,23 +148,26 @@ export const ASSETS = {
     designWidth: 140,
     designHeight: 210,
   },
+  // The old cat, gramophone and UCI flag sprites (switched off -- see
+  // SPRITE_PROPS_ENABLED in CabinInterior) are kept in hold/: cat.png and
+  // gramophone.png at the top level are now full-canvas overlays.
   cat: {
     id: "cat",
-    src: "/art/cabin/cat.png",
+    src: "/art/cabin/hold/cat.png",
     label: "Cat",
     designWidth: 150,
     designHeight: 120,
   },
   gramophone: {
     id: "gramophone",
-    src: "/art/cabin/gramophone.png",
+    src: "/art/cabin/hold/gramophone.png",
     label: "Gramophone",
     designWidth: 150,
     designHeight: 160,
   },
   uciFlag: {
     id: "uciFlag",
-    src: "/art/cabin/uci-flag.png",
+    src: "/art/cabin/hold/uci-flag.png",
     label: "UCI Flag",
     designWidth: 220,
     designHeight: 130,
@@ -106,12 +187,19 @@ export const ASSETS = {
     designHeight: 105,
   },
 
-  // About
+  // About / Education panels
   aboutPhoto: {
     id: "aboutPhoto",
-    src: "/images/about/jeryn.jpg",
+    src: "/images/about.png",
     label: "Jeryn's About Photo",
     designWidth: 480,
+    designHeight: 600,
+  },
+  educationPhoto: {
+    id: "educationPhoto",
+    src: "/images/education.png",
+    label: "Education Photo",
+    designWidth: 600,
     designHeight: 600,
   },
 
@@ -254,44 +342,48 @@ export const ASSETS = {
 
 export type AssetId = keyof typeof ASSETS;
 
-// Exactly what the CLOSED exterior needs in order to be shown: the four
-// environment layers, the cabin's closed shell, the sign, the drifting
-// clouds, and the door hint. The initial loading screen waits for this list
-// and nothing else -- notably not the interior, and not the other two scenes.
+// Exactly what the first frame of `/` needs: the four environment layers,
+// every cloud shape the sky can draw, and the cabin's three art layers. The
+// front wall and the interior are in the first frame too, under the exterior
+// -- the interior has to be fully drawn before the exterior can dissolve over
+// it, so a visitor who clicks straight away still gets a solid reveal. The
+// initial loading screen waits for this list and nothing else -- notably not
+// the other two scenes.
 export const ESSENTIAL_EXTERIOR_ASSETS: readonly AssetId[] = [
   "cabinSky",
   "cabinMountains",
   "cabinFoothillsBackTrees",
   "cabinGroundFrontTrees",
   "cabinExterior",
-  "houseSign",
+  "cabinFrontWall",
+  "cabinInterior",
+  "cabinLantern",
+  "cabinLanternGlow",
   "ambientCloud1Medium",
   "ambientCloud2VeryLarge",
   "ambientCloud3Medium",
   "ambientCloud4Small",
   "ambientCloud5Small",
   "ambientCloud6Small",
-  "uiExclamation",
 ];
 
 // Warmed in the background only AFTER the exterior is on screen and
-// interactive: the cabin's inside, the two neighbouring scenes, and the bird
-// and airplane sprites. Nothing in here can delay the reveal or block input.
+// interactive: the door hint (shown seconds later), the About and Education
+// photos, the bird and airplane sprites, and the Experience scene. Nothing in
+// here can delay the reveal or block input. Projects art is left out while
+// Projects is hidden (see PROJECTS_ENABLED) -- its background alone is
+// several MB.
 export const SECONDARY_ASSETS: readonly AssetId[] = [
+  "uiExclamation",
+  "aboutPhoto",
+  "educationPhoto",
   "ambientBird",
   "ambientAirplane",
-  "cabinInterior",
-  "cabinFrontWall",
-  "titleCard",
-  "contactFrame",
-  "cat",
-  "gramophone",
-  "uciFlag",
   "experienceBackground",
   "experienceCloud1",
-  "projectsBackground",
-  "projectBoulder1",
 ];
+
+export const PROJECTS_SECONDARY_ASSETS: readonly AssetId[] = ["projectsBackground", "projectBoulder1"];
 
 export function assetSources(ids: readonly AssetId[]): string[] {
   return ids.map((id) => ASSETS[id].src);

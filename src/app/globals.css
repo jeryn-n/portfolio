@@ -10,6 +10,10 @@
   --wireframe-fill: rgb(91 138 193 / 16%);
   --alert: #ff8a1f;
   --alert-ink: #2a1400;
+  /* The first-load cover: a deeper, more saturated navy than the stage, and
+     a brighter, cooler blue-white for its mark. */
+  --loader-navy: #081b3a;
+  --loader-ink: #d6e6ff;
 }
 
 @theme inline {
@@ -22,11 +26,19 @@
   --color-wireframe-fill: var(--wireframe-fill);
   --color-alert: var(--alert);
   --color-alert-ink: var(--alert-ink);
+  --color-loader-navy: var(--loader-navy);
+  --color-loader-ink: var(--loader-ink);
+  /* The hanging sign's face, loaded by next/font in the root layout. The
+     fallback is the nearest system look: a bold squared sans. */
+  --font-pixel-label: var(--next-font-pixel-label), "Arial Black", ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
 body {
   height: 100%;
+  /* The page itself never scrolls, and a downward swipe is scene travel --
+     never let it become the browser's pull-to-refresh. */
+  overscroll-behavior: none;
 }
 
 body {
@@ -104,12 +116,12 @@ body {
 /* Chimney smoke: each puff climbs from the chimney mouth in a steady column,
    swelling as it goes, leaning further left (the wind) the higher it gets,
    and fanning out to its own side (--smoke-spread) so the column widens
-   towards the top. It stays solid nearly all the way and only fades in the
-   last stretch, by which point it has normally risen off the screen. */
+   towards the top. It's born already 15% of the way to its full opacity,
+   stays solid nearly all the way and only fades in the last stretch, by which point it has normally risen off the screen. */
 @keyframes smoke-rise {
   0% {
     transform: translate3d(var(--smoke-jitter, 0px), 0, 0) scale(var(--smoke-start-scale, 0.3));
-    opacity: 0;
+    opacity: calc(var(--smoke-opacity, 0.75) * 0.15);
   }
   8% {
     opacity: var(--smoke-opacity, 0.75);
@@ -120,7 +132,7 @@ body {
         calc(var(--smoke-rise, 900px) * -0.36),
         0
       )
-      scale(0.68);
+      scale(0.8);
   }
   70% {
     transform: translate3d(
@@ -128,7 +140,7 @@ body {
         calc(var(--smoke-rise, 900px) * -0.72),
         0
       )
-      scale(0.88);
+      scale(0.95);
   }
   85% {
     opacity: calc(var(--smoke-opacity, 0.75) * 0.75);
@@ -158,7 +170,7 @@ body {
   background: linear-gradient(
     to bottom,
     var(--smoke-color, #d3d8de) 66.667%,
-    color-mix(in srgb, var(--smoke-color, #d3d8de) 90%, #5b6573) 66.667%
+    color-mix(in srgb, var(--smoke-color, #d3d8de) 93%, #5b6573) 66.667%
   );
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Cpath d='M4 0h4v12H4zM2 1h8v10H2zM1 2h10v8H1zM0 4h12v4H0z'/%3E%3C/svg%3E");
   mask-size: 100% 100%;
@@ -169,6 +181,25 @@ body {
   animation-iteration-count: infinite;
 }
 
+/* The desktop Experience / Projects edge tabs: a 4px-stepped, pixel-cut corner
+   on the two edges that show (the other two are tucked off-screen). The border
+   is two stacked boxes sharing this same shape, the inner inset by the border
+   width, so the stair steps stay an even thickness. */
+.pixel-tab-top {
+  clip-path: polygon(
+    0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px),
+    4px calc(100% - 8px), 0 calc(100% - 8px)
+  );
+}
+
+.pixel-tab-bottom {
+  clip-path: polygon(
+    0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px,
+    calc(100% - 4px) 8px, 100% 8px, 100% 100%, 0 100%
+  );
+}
+
 /* Set on a particle layer whose motion must hold still -- see
    useEnvironmentMotion. This freezes the particles in place; it does not
    hide them. */
@@ -176,4 +207,159 @@ body {
 .env-frozen .flyer-sprite,
 .env-frozen .smoke-puff {
   animation-play-state: paused;
+}
+
+/* Every real control gets the hand cursor. Tailwind's preflight resets
+   buttons to the default arrow, so say it once here (in the base layer, so a
+   utility like disabled:cursor-default still wins) rather
+   than on each one. Decorative hover-only things aren't buttons or links, so
+   they keep the arrow. */
+@layer base {
+  a[href],
+  button:not(:disabled),
+  summary,
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+  a[aria-disabled="true"] {
+    cursor: default;
+  }
+}
+
+/* The cabin fire's glow: firelight, not a metronome. Opacity (90-100%) and
+   scale (95-120%) run as two sequences of different lengths (10.4s and 11.8s)
+   made of uneven, randomly-valued steps of 350-900ms, so the combined flicker
+   takes minutes to repeat exactly. Each step eases in and out; the stops are
+   at each step's running time as a fraction of the loop. */
+@keyframes fire-glow-opacity {
+  0%, 100% { opacity: 0.987; }
+  4.61% { opacity: 0.983; }
+  12.78% { opacity: 0.936; }
+  19.37% { opacity: 0.998; }
+  27.62% { opacity: 0.912; }
+  31.23% { opacity: 0.945; }
+  39.11% { opacity: 0.911; }
+  44.37% { opacity: 0.962; }
+  48.01% { opacity: 0.908; }
+  56.55% { opacity: 0.961; }
+  62.71% { opacity: 0.993; }
+  70.17% { opacity: 0.927; }
+  75.73% { opacity: 0.959; }
+  83.58% { opacity: 0.935; }
+  88.85% { opacity: 0.971; }
+  92.69% { opacity: 0.931; }
+}
+
+@keyframes fire-glow-scale {
+  0%, 100% { transform: scale(0.975); }
+  5.86% { transform: scale(1.07); }
+  10.59% { transform: scale(1.146); }
+  18.18% { transform: scale(1.031); }
+  23.39% { transform: scale(1.171); }
+  27.18% { transform: scale(0.96); }
+  34.41% { transform: scale(1.187); }
+  40.1% { transform: scale(1.129); }
+  43.87% { transform: scale(0.99); }
+  48.84% { transform: scale(1.156); }
+  52.63% { transform: scale(0.953); }
+  55.59% { transform: scale(1.077); }
+  61.76% { transform: scale(1.2); }
+  65.4% { transform: scale(1.054); }
+  70.88% { transform: scale(0.97); }
+  77.29% { transform: scale(1.168); }
+  81.97% { transform: scale(1.001); }
+  87.89% { transform: scale(1.12); }
+  94.7% { transform: scale(1.06); }
+}
+
+.fire-glow {
+  animation: fire-glow-scale 11.834s ease-in-out infinite;
+  will-change: transform;
+}
+
+.fire-glow-image {
+  opacity: 0.95;
+  animation: fire-glow-opacity 10.428s ease-in-out infinite;
+  will-change: opacity;
+}
+
+/* The exterior lantern's glow: the same idea as the fire's, but calmer -- a
+   candle behind glass. The glow file's own alpha is already faint (23%) and is
+   the ceiling, so the flicker dips below it: opacity wanders between 80% and
+   100% of the file's alpha in small, uneven drifts (no step bigger than 8%),
+   scale 90-100% (never bigger than the art) as a candle-like flutter -- many
+   small, quick, unevenly spaced twitches riding a slow drift, none bigger
+   than ~5% -- on two loops of different lengths (12.3s and 14.7s). */
+@keyframes lantern-glow-opacity {
+  0%, 100% { opacity: 0.910; }
+  9.3% { opacity: 0.870; }
+  18.6% { opacity: 0.940; }
+  27.1% { opacity: 0.900; }
+  36.8% { opacity: 1.000; }
+  45.2% { opacity: 0.930; }
+  54.7% { opacity: 0.850; }
+  62.1% { opacity: 0.810; }
+  71.4% { opacity: 0.890; }
+  80.3% { opacity: 0.960; }
+  88.6% { opacity: 0.920; }
+}
+
+@keyframes lantern-glow-scale {
+  0%, 100% { transform: scale(0.940); }
+  3.4% { transform: scale(0.965); }
+  6.1% { transform: scale(0.930); }
+  8.2% { transform: scale(0.945); }
+  12.7% { transform: scale(0.910); }
+  14.9% { transform: scale(0.940); }
+  17.3% { transform: scale(0.975); }
+  19.2% { transform: scale(0.955); }
+  22.8% { transform: scale(0.920); }
+  25.1% { transform: scale(0.935); }
+  28.6% { transform: scale(0.985); }
+  30.4% { transform: scale(0.965); }
+  32.2% { transform: scale(0.995); }
+  35.9% { transform: scale(0.950); }
+  38.4% { transform: scale(0.925); }
+  40.1% { transform: scale(0.900); }
+  43.7% { transform: scale(0.930); }
+  46.2% { transform: scale(0.960); }
+  47.6% { transform: scale(0.945); }
+  51.3% { transform: scale(0.975); }
+  54.8% { transform: scale(0.940); }
+  57.5% { transform: scale(0.905); }
+  59.9% { transform: scale(0.930); }
+  63.4% { transform: scale(0.970); }
+  65.2% { transform: scale(0.955); }
+  67.8% { transform: scale(1.000); }
+  70.6% { transform: scale(0.975); }
+  73.1% { transform: scale(0.940); }
+  76.4% { transform: scale(0.915); }
+  78.3% { transform: scale(0.945); }
+  81.9% { transform: scale(0.925); }
+  84.7% { transform: scale(0.960); }
+  87.2% { transform: scale(0.985); }
+  89.5% { transform: scale(0.950); }
+  92.8% { transform: scale(0.920); }
+  95.6% { transform: scale(0.945); }
+}
+
+.lantern-glow {
+  animation: lantern-glow-scale 14.684s ease-in-out infinite;
+  will-change: transform;
+}
+
+.lantern-glow-image {
+  opacity: 0.8;
+  animation: lantern-glow-opacity 12.284s ease-in-out infinite;
+  will-change: opacity;
+}
+
+/* Reduced motion: steady glows. */
+@media (prefers-reduced-motion: reduce) {
+  .fire-glow,
+  .fire-glow-image,
+  .lantern-glow,
+  .lantern-glow-image {
+    animation: none;
+  }
 }

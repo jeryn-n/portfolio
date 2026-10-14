@@ -12,6 +12,13 @@
 
 export type SfxKey = "click" | "panelOpen" | "panelClose" | "swipe";
 
+// Temporary, for the first deployment: no sound at all. While false the
+// fixed Sound/Mute button isn't rendered, and the two calls that can switch
+// sound on (the master toggle and the gramophone's toggleMusic) do nothing,
+// so no interaction can start audio. Everything else -- AudioProvider, the
+// config below, every playSfx call -- is untouched. Set to true to restore.
+export const SOUND_ENABLED = false;
+
 export const AUDIO = {
   music: {
     src: null as string | null,

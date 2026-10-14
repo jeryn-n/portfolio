@@ -24,6 +24,7 @@ interface MediaFrameProps {
 // icon -- naming the exact file (and folder) it's waiting for. The frame
 // itself never scales; only the image inside it zooms slightly while
 // `active`, staying clipped by the frame's rounded, overflow-hidden bounds.
+// Its brightness never changes with `active` -- hover doesn't light it up.
 export function MediaFrame({
   src,
   alt,
@@ -51,8 +52,8 @@ export function MediaFrame({
           draggable={false}
           decoding="async"
           className="h-full w-full object-cover"
-          style={{ objectPosition }}
-          animate={{ scale: active ? 1.08 : 1, opacity: active ? 1 : 0.9 }}
+          style={{ objectPosition, opacity: 0.9 }}
+          animate={{ scale: active ? 1.08 : 1 }}
           transition={{ duration: 0.2, ease: "easeOut" }}
           onError={onError}
         />

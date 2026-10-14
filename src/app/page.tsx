@@ -7,14 +7,13 @@ import { ExteriorLoadingScreen } from "@/components/ui/ExteriorLoadingScreen";
 // live in AppProviders, mounted once from the root layout, so they persist
 // across client-side route changes. Only the scene-travel arrows and the
 // first-load exterior screen are homepage-specific, so only they live here --
-// a portfolio detail route never mounts the loading screen at all.
+// a portfolio detail route never mounts the loading screen at all. The
+// loading screen is SceneStage's overlay, so it knows when the world under
+// it has been rendered.
 export default function Home() {
   return (
-    <>
-      <SceneStage viewportUI={<ViewportNavArrows />}>
-        <WorldSceneController />
-      </SceneStage>
-      <ExteriorLoadingScreen />
-    </>
+    <SceneStage viewportUI={<ViewportNavArrows />} overlay={<ExteriorLoadingScreen />}>
+      <WorldSceneController />
+    </SceneStage>
   );
 }

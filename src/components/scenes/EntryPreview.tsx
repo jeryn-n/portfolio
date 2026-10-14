@@ -194,22 +194,22 @@ export function EntryPreview({
                   </HighlightLine>
                 </div>
               </div>
+              {/* Hover only grows the title a touch; its brightness, and the
+                  tagline's, never change. */}
               <motion.h3
                 className={`relative font-bold uppercase tracking-wide ${textColor}`}
-                style={{ top: textOffsetY, fontSize: 14 * t, lineHeight: `${20 * t}px` }}
-                animate={{ opacity: active ? 1 : 0.85, scale: active ? 1.02 : 1 }}
+                style={{ top: textOffsetY, fontSize: 14 * t, lineHeight: `${20 * t}px`, opacity: 0.85 }}
+                animate={{ scale: active ? 1.02 : 1 }}
                 transition={{ duration: 0.18 }}
               >
                 {entry.title}
               </motion.h3>
-              <motion.p
+              <p
                 className={`relative ${subTextColor}`}
-                style={{ top: taglineOffsetY, fontSize: 12 * t, lineHeight: `${16 * t}px` }}
-                animate={{ opacity: active ? 0.95 : tone === "dark" ? 0.85 : 0.7 }}
-                transition={{ duration: 0.18 }}
+                style={{ top: taglineOffsetY, fontSize: 12 * t, lineHeight: `${16 * t}px`, opacity: tone === "dark" ? 0.85 : 0.7 }}
               >
                 {entry.tagline}
-              </motion.p>
+              </p>
             </div>
           </motion.div>
         </Link>

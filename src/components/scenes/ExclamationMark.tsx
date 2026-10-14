@@ -24,6 +24,8 @@ const exclamationAsset = ASSETS.uiExclamation;
 const fadeInVariants: Variants = {
   hidden: { opacity: 0 },
   shown: { opacity: 1, transition: { duration: 0.4 } },
+  // Only used when an AnimatePresence parent removes the mark.
+  gone: { opacity: 0, transition: { duration: 0.6, ease: "easeOut" } },
 };
 
 // Continuous two-bounce / brief-pause loop, used by the exterior door hint.
@@ -62,6 +64,7 @@ export function ExclamationMark({ x, y, ariaLabel, bouncePattern = twoBouncePatt
       style={{ left: x, top: y, width: exclamationAsset.designWidth, height: exclamationAsset.designHeight, scale }}
       initial="hidden"
       animate="shown"
+      exit="gone"
       variants={fadeInVariants}
     >
       <motion.div animate={{ y: bouncePattern.keyframes }} transition={bouncePattern.transition}>
