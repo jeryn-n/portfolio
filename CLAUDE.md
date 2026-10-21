@@ -1,4 +1,4 @@
-# imjeryn.com
+# imjeryn.dev
 
 An interactive, artistic portfolio — not a conventional content site. The desktop
 experience is a pixel-art world the visitor explores; copy and visuals are the

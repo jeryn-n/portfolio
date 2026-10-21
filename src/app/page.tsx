@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { SceneStage } from "@/components/scenes/SceneStage";
 import { ViewportNavArrows } from "@/components/scenes/ViewportNavArrows";
 import { WorldSceneController } from "@/components/scenes/WorldSceneController";
 import { ExteriorLoadingScreen } from "@/components/ui/ExteriorLoadingScreen";
+
+export const metadata: Metadata = {
+  alternates: { canonical: "https://imjeryn.dev" },
+};
 
 // Providers and the site-wide viewport UI (menu / sound / About / Education)
 // live in AppProviders, mounted once from the root layout, so they persist

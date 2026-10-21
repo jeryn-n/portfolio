@@ -13,9 +13,9 @@ LIVE VERSION
 
 The most recent deployment of the portfolio is available at:
 
-https://imjeryn.com
+https://imjeryn.dev
 
-Because this portfolio uses Next.js, the included root index.html directs to the deployed production build at https://imjeryn.com; no package installation is required to view the submitted portfolio.
+Because this portfolio uses Next.js, the included root index.html directs to the deployed production build at https://imjeryn.dev; no package installation is required to view the submitted portfolio.
 
 Although this submission meets the standards of the assignment, this portfolio is an ongoing personal project and some planned features are not yet complete. The live site above should be considered the most recent version of the portfolio and may contain improvements made after this submitted version.
 
@@ -90,7 +90,7 @@ Some additional planned features, animations, environmental interactions, audio,
 
 The current public deployment can be viewed at:
 
-https://imjeryn.com
+https://imjeryn.dev
 
 TECHNOLOGIES USED
 
@@ -133,7 +133,7 @@ AI-assisted development tools were used for development support, debugging, plan
 
 ADDITIONAL NOTES
 
-- The public deployment is available at https://imjeryn.com.
+- The public deployment is available at https://imjeryn.dev.
 - The portfolio uses a web framework beyond those covered directly by the assignment.
 - It was developed as a real personal portfolio intended to continue beyond this course.
 - Some interactive or decorative features are intentionally deferred to later versions.

@@ -2,12 +2,16 @@
 
 import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { Fragment, useEffect, useRef } from "react";
 import { useWorldScene, type Scene } from "@/components/scenes/WorldSceneContext";
 import { PROJECTS_ENABLED, SITE } from "@/data/site";
 import { useSiteUI } from "./SiteUIProvider";
 
-type MenuItemKind = "home" | "experience" | "projects" | "about" | "resume";
+type MenuItemKind = "home" | "experience" | "projects" | "about" | "resume" | "videos";
+
+// The standalone video editing portfolio. The menu is its only entry point
+// on the site -- it's no part of the world's scene travel.
+const VIDEOS_PATH = "/video";
 
 // Projects is left out while it's hidden (see PROJECTS_ENABLED).
 const MENU_ITEMS: Array<{ label: string; kind: MenuItemKind }> = [
@@ -16,6 +20,7 @@ const MENU_ITEMS: Array<{ label: string; kind: MenuItemKind }> = [
   ...(PROJECTS_ENABLED ? [{ label: "Projects", kind: "projects" as const }] : []),
   { label: "About", kind: "about" },
   { label: "Resume", kind: "resume" },
+  { label: "Video Portfolio", kind: "videos" },
 ];
 
 // Very subtle upper-left menu, only shown once the cabin has been entered.
@@ -90,6 +95,11 @@ export function MasterMenu() {
       closeMenu();
       return;
     }
+    if (kind === "videos") {
+      closeMenu();
+      if (pathname !== VIDEOS_PATH) router.push(VIDEOS_PATH);
+      return;
+    }
 
     const target: Scene = kind === "home" ? "cabin" : kind;
     // Always close the menu before travelling or routing.
@@ -129,14 +139,18 @@ export function MasterMenu() {
             className="mt-2 w-40 border-2 border-ink-soft bg-paper py-1 text-ink shadow-md"
           >
             {MENU_ITEMS.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                onClick={() => handleItemClick(item.kind)}
-                className="block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide hover:bg-ink-soft hover:text-paper"
-              >
-                {item.label}
-              </button>
+              <Fragment key={item.label}>
+                {/* Video Portfolio is a separate destination from the site's
+                    own sections, so a thin rule sets it apart. */}
+                {item.kind === "videos" && <div role="separator" className="mx-3 my-1.5 h-px bg-ink-soft/25" />}
+                <button
+                  type="button"
+                  onClick={() => handleItemClick(item.kind)}
+                  className="block w-full px-3 py-1.5 text-left text-xs font-semibold uppercase tracking-wide hover:bg-ink-soft hover:text-paper"
+                >
+                  {item.label}
+                </button>
+              </Fragment>
             ))}
           </motion.div>
         )}

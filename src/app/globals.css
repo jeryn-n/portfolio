@@ -200,6 +200,33 @@ body {
   );
 }
 
+/* The /video media frames: a pixel-rounded corner -- a ~12px radius drawn
+   in 2px steps (8-4-2-2 inward) -- on all four corners. */
+.pixel-frame {
+  clip-path: polygon(
+    0 8px, 2px 8px, 2px 4px, 4px 4px, 4px 2px, 8px 2px, 8px 0,
+    calc(100% - 8px) 0, calc(100% - 8px) 2px, calc(100% - 4px) 2px, calc(100% - 4px) 4px,
+    calc(100% - 2px) 4px, calc(100% - 2px) 8px, 100% 8px,
+    100% calc(100% - 8px), calc(100% - 2px) calc(100% - 8px), calc(100% - 2px) calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) calc(100% - 2px), calc(100% - 8px) calc(100% - 2px),
+    calc(100% - 8px) 100%,
+    8px 100%, 8px calc(100% - 2px), 4px calc(100% - 2px), 4px calc(100% - 4px), 2px calc(100% - 4px),
+    2px calc(100% - 8px), 0 calc(100% - 8px)
+  );
+}
+
+/* The same rounding one size down: the media inside a frame's border, and
+   small thumbnails. */
+.pixel-frame-sm {
+  clip-path: polygon(
+    0 4px, 2px 4px, 2px 2px, 4px 2px, 4px 0,
+    calc(100% - 4px) 0, calc(100% - 4px) 2px, calc(100% - 2px) 2px, calc(100% - 2px) 4px, 100% 4px,
+    100% calc(100% - 4px), calc(100% - 2px) calc(100% - 4px), calc(100% - 2px) calc(100% - 2px),
+    calc(100% - 4px) calc(100% - 2px), calc(100% - 4px) 100%,
+    4px 100%, 4px calc(100% - 2px), 2px calc(100% - 2px), 2px calc(100% - 4px), 0 calc(100% - 4px)
+  );
+}
+
 /* Set on a particle layer whose motion must hold still -- see
    useEnvironmentMotion. This freezes the particles in place; it does not
    hide them. */

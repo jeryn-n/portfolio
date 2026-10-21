@@ -9,7 +9,10 @@ import "./globals.css";
 // the font-pixel-label utility.
 const pixelLabel = Silkscreen({ subsets: ["latin"], weight: "700", variable: "--next-font-pixel-label" });
 
-export const metadata = {
+// imjeryn.dev is the canonical domain (imjeryn.com redirects to it), and the
+// base every relative metadata URL resolves against.
+export const metadata: Metadata = {
+  metadataBase: new URL("https://imjeryn.dev"),
   title: "Jeryn's House",
   description:
     "An interactive portfolio.",
@@ -17,7 +20,7 @@ export const metadata = {
     title: "Jeryn's House",
     description:
       "An interactive portfolio.",
-    url: "https://imjeryn.com",
+    url: "https://imjeryn.dev",
     siteName: "Jeryn's House'",
     type: "website",
   },
