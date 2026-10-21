@@ -95,8 +95,8 @@ export type VideoPortfolioSection = {
 // index.
 export const FIRST_VIDEO = {
   label: "It had to start somewhere",
-  title: "My First Video - 3rd Grade",
-  description: "Long before short films, client work, and a lot of editing timelines, there was this.",
+  title: "My First Video! - 3rd Grade",
+  description: "Long before short films, client work, and editing timelines, there was this.",
   youtubeId: "0OsN4vvA2rA",
   coverTitle: "DONT LET THE PIGEON BE AN ENGINEER!",
 };
@@ -111,7 +111,7 @@ export const VIDEO_PORTFOLIO: VideoPortfolioSection[] = [
         slug: "dantes-disaster",
         category: "Narrative Film",
         title: "Dante's Disaster",
-        subtitle: "Sound Design Award Winner 🏆 · 48-Hour Short",
+        subtitle: "Sound Design Award Winner 🏆 · College 48",
         description:
           "A short film completed in under 48 hours that went on to win a sound design award. Alongside the edit, I handled the sound design, capture, and music. The piece highlights my approach to narrative continuity, comedic timing, performance selection, pacing, and the relationship between picture and sound.",
         role: "Editing, sound design, capture, and music",
@@ -143,7 +143,7 @@ export const VIDEO_PORTFOLIO: VideoPortfolioSection[] = [
         category: "Additional Academic Editing",
         emphasis: "secondary",
         title: "Sticky Situation",
-        description: "An academic short I edited. My role was the edit only; the sound was handled by others.",
+        description: "A small academic short I directed and edited. The sound was handled by others.",
         externalUrl: "https://youtu.be/2WHlPSu2_00",
         // Optional: a still, e.g. "/videos/academic/sticky-situation.jpg".
         thumbnail: undefined,
@@ -160,7 +160,7 @@ export const VIDEO_PORTFOLIO: VideoPortfolioSection[] = [
         category: "Branded / Client Work",
         title: "Madison Art",
         description:
-          "Two complete videos produced for Madison Art, focused on presenting visual material clearly while maintaining a deliberate pace and polished tone. These pieces gave me experience shaping branded content around an existing visual identity.",
+          "Two selected videos produced for Madison Art Consulting, focused on presenting visual material clearly while maintaining a deliberate pace and polished tone. These pieces gave me experience shaping branded content around an existing visual identity.",
         frameAspect: 9 / 16,
         media: [
           { type: "video", src: "/videos/madison/madison-vertical-01.mp4", alt: "Madison Art, video 1" },
@@ -178,7 +178,7 @@ export const VIDEO_PORTFOLIO: VideoPortfolioSection[] = [
         category: "Social Media",
         title: "Short-Form Editing",
         description:
-          "A selection of polished vertical edits created for other people and projects. These pieces demonstrate how I approach pacing, visual rhythm, emphasis, and clarity within the constraints of short-form content.",
+          "A limited selection of polished vertical edits created for other people and projects. These pieces demonstrate how I approach pacing, visual rhythm, emphasis, and clarity within the constraints of short-form content.",
         frameAspect: 9 / 16,
         media: [1, 2, 3, 4, 5].map((n) => ({
           type: "video" as const,
