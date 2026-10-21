@@ -45,7 +45,8 @@ function secondarySources(): string[] {
 // at all. A load that doesn't open on the closed exterior -- direct scene
 // entry (`/#experience`, `/#projects`), or returning to `/` with the cabin
 // already open -- skips it in a layout effect, before the first paint.
-export function ExteriorLoadingScreen() {
+// `onDone` is told once the cover is gone (or was never needed).
+export function ExteriorLoadingScreen({ onDone }: { onDone?: () => void }) {
   // Starts covering on both server and client, so there is no hydration
   // mismatch and no gap between first paint and the cover.
   const [phase, setPhase] = useState<Phase>("covering");
@@ -94,6 +95,10 @@ export function ExteriorLoadingScreen() {
   useEffect(() => {
     if (phase === "opening") void preloadImages(secondarySources(), "low");
   }, [phase]);
+
+  useEffect(() => {
+    if (phase === "done") onDone?.();
+  }, [phase, onDone]);
 
   if (phase === "done") return null;
 

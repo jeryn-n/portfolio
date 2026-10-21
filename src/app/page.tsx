@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { SceneStage } from "@/components/scenes/SceneStage";
 import { ViewportNavArrows } from "@/components/scenes/ViewportNavArrows";
 import { WorldSceneController } from "@/components/scenes/WorldSceneController";
-import { ExteriorLoadingScreen } from "@/components/ui/ExteriorLoadingScreen";
+import { HomeOverlay } from "@/components/ui/HomeOverlay";
 
 export const metadata: Metadata = {
   alternates: { canonical: "https://imjeryn.dev" },
@@ -14,10 +14,11 @@ export const metadata: Metadata = {
 // first-load exterior screen are homepage-specific, so only they live here --
 // a portfolio detail route never mounts the loading screen at all. The
 // loading screen is SceneStage's overlay, so it knows when the world under
-// it has been rendered.
+// it has been rendered. The overlay also carries the "still under
+// development" notice, which waits for the loading screen to finish.
 export default function Home() {
   return (
-    <SceneStage viewportUI={<ViewportNavArrows />} overlay={<ExteriorLoadingScreen />}>
+    <SceneStage viewportUI={<ViewportNavArrows />} overlay={<HomeOverlay />}>
       <WorldSceneController />
     </SceneStage>
   );
