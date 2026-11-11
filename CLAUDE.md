@@ -57,11 +57,14 @@ bridge during travel (`getSkyBridgeHeight`; zero on portrait). Experience
 entries are placed by slug and sized directly (no transforms). Each terrain layer is its own
 parallax depth (sky ×1 … ground ×1.11) zooming, like the cabin, from one
 focus point near the cabin's base (`getZoomFocusY`) as the cabin opens. Snow falls in front of the closed
-cabin. As it opens, the snow over the open cabin's box (`getOpenCabinBox`)
-hands over to a second copy of the very same flakes behind the cabin
-(`useSnowFlakes` shared by both layers, complementary masks that always add
-up to one snowfall), so it keeps falling past the windows and around the
-roof but never on the interior.
+cabin. As it opens, the one snow layer drops behind the cabin (a z-index
+change only, so the flakes never restart), so it keeps falling past the
+windows and around the roof but never on the interior. Keep it that way: no
+second copy of the snow and no stage-sized CSS masks over it -- each such
+mask is a stage-sized bitmap on a phone, and a two-copy, cross-masked
+version crashed phones as the cabin opened. Each flake is only
+dot-sized (it falls `--snow-fall` px), since every flake is its own
+compositor layer.
 
 In both modes the cabin grows from its **base** (bottom-center
 transform-origin), so the opening zoom expands it upward and outward; on

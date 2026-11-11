@@ -62,22 +62,25 @@ body {
    CSS variables generated once on mount, so nothing here is ever driven by
    per-frame React state. */
 
+/* From just above the layer (10% of its height) to its bottom edge.
+   --snow-fall is the layer's height, set by SnowLayer. */
 @keyframes snow-fall {
   from {
-    transform: translate3d(0, -10%, 0);
+    transform: translate3d(0, calc(var(--snow-fall, 1080px) * -0.1), 0);
   }
   to {
-    transform: translate3d(var(--snow-drift, 0px), 100%, 0);
+    transform: translate3d(var(--snow-drift, 0px), var(--snow-fall, 1080px), 0);
   }
 }
 
-/* The flake element deliberately spans the full height of its layer, so the
-   `100%` above resolves against the layer's height rather than the few-pixel
-   dot's own. Only the ::before dot actually paints. */
+/* The flake element is only as big as its dot: each animating flake is its
+   own compositor layer, and on phones a layer is backed at its own full size,
+   so a flake box the height of the stage (the old way to make a `100%`
+   translate resolve against the layer) cost a stage-tall bitmap per flake. */
 .snow-flake {
   position: absolute;
   top: 0;
-  height: 100%;
+  height: var(--snow-size, 6px);
   width: var(--snow-size, 6px);
   animation-name: snow-fall;
   animation-timing-function: linear;

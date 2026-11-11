@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, type CSSProperties } from "react";
+import { getStageSize } from "@/lib/stage";
 import { useCompositionMode } from "./CompositionModeContext";
 
 // Still conservative: a steady, readable snowfall matters more than
@@ -83,21 +84,8 @@ export function useSnowFlakes(enabled: boolean): Flake[] {
   return useMemo(() => (enabled ? createFlakes(FLAKE_COUNT[mode], FLAKE_SHAPE[mode]) : []), [enabled, mode]);
 }
 
-// The flakes that can ever be inside the stage-x range [left, right] (stage
-// px, over a stage `stageWidth` wide), anywhere on their slanted fall.
-export function flakesCrossing(flakes: Flake[], stageWidth: number, left: number, right: number): Flake[] {
-  return flakes.filter((flake) => {
-    const x = (flake.leftPercent / 100) * stageWidth;
-    return x + Math.min(0, flake.drift) <= right && x + Math.max(0, flake.drift) + flake.size >= left;
-  });
-}
-
 interface SnowLayerProps {
-  // From useSnowFlakes. Two layers given the same flakes, mounted together,
-  // draw the very same snowfall: each flake's CSS animation starts on the
-  // same frame with the same delay and duration, so the two copies stay
-  // exactly on top of one another (see the cabin scene, which splits the
-  // snow between in front of the cabin and behind it).
+  // From useSnowFlakes.
   flakes: Flake[];
   // True holds every flake exactly where it is -- see useEnvironmentMotion.
   frozen: boolean;
@@ -107,19 +95,21 @@ interface SnowLayerProps {
 // flakes. No canvas, no WebGL, no dependency, and no per-frame React state:
 // each flake's randomness is generated once (useSnowFlakes) and handed to
 // CSS as inline custom properties (see the `snow-fall` keyframes in
-// globals.css).
+// globals.css). Each flake is only as big as its dot, falling the stage's
+// height (--snow-fall) -- every flake is its own compositor layer, so a
+// stage-tall box per flake would cost phones a lot of memory for nothing.
 //
-// Layering is handled by the cabin scene: it mounts the snow in front of the
-// cabin, and once the cabin opens, cross-masks it with a second copy behind
-// the cabin over the open cabin's box -- snow keeps falling behind the
-// interior, but never on it. See snowVariants in CabinScene.
+// Layering is handled by the cabin scene: in front of the closed cabin,
+// behind the open one. See snowVariants in CabinScene.
 export function SnowLayer({ flakes, frozen }: SnowLayerProps) {
+  const mode = useCompositionMode();
   if (flakes.length === 0) return null;
 
   return (
     <div
       aria-hidden="true"
       className={`pointer-events-none absolute inset-0 overflow-hidden ${frozen ? "env-frozen" : ""}`}
+      style={{ "--snow-fall": `${getStageSize(mode).height}px` } as CSSProperties}
     >
       {flakes.map((flake) => (
         <span

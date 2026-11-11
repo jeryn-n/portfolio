@@ -16,7 +16,6 @@ import {
   CHIMNEY_SMOKE_ORIGIN,
   DOOR_HINT,
   fitSceneLayout,
-  getOpenCabinBox,
   getSceneLayout,
   getSmokeCorridorHeight,
   getZoomFocusY,
@@ -42,7 +41,7 @@ import { ChimneySmoke } from "./ChimneySmoke";
 import { useCompositionMode } from "./CompositionModeContext";
 import { LayoutGuide } from "./LayoutGuide";
 import { useStageViewport } from "./SceneStage";
-import { flakesCrossing, SnowLayer, useSnowFlakes } from "./SnowLayer";
+import { SnowLayer, useSnowFlakes } from "./SnowLayer";
 import { useEnvironmentMotion } from "./useEnvironmentMotion";
 import { useWorldScene } from "./WorldSceneContext";
 
@@ -74,49 +73,27 @@ const PARALLAX_VARIANTS: Record<ParallaxDepth, Variants> = {
   ground: parallaxVariants(PARALLAX_ZOOM.ground),
 };
 
-// Snow falls in front of the closed cabin. Once it opens, the snow over the
-// open cabin's box moves BEHIND the cabin: the front copy is masked out there
-// (snowCutoutMask) while a second copy of the very same flakes, behind the
-// cabin, is masked in (snowBehindMasks) -- so it keeps falling past the
-// windows and around the roof but never lands on the interior, and the two
-// masks always add up to exactly one snowfall. The handover fades in with
-// the front wall, and all of the snow dims a little while the cabin is open.
+// Snow falls in front of the closed cabin. The moment it starts to open, the
+// one snow layer drops BEHIND the cabin -- a change of stacking order only,
+// so the very same flakes keep falling, never restarted or duplicated -- and
+// from then on it shows around the roof and through the windows but never
+// lands on the interior. All of the snow dims a little while the cabin is
+// open.
+//
+// Deliberately no masks and no second copy: an earlier version cross-masked
+// the snow with a copy of itself behind the cabin, and those stage-sized
+// masks (repainted every frame of the handover) plus the doubled flake layers
+// were enough compositor memory to crash phones as the cabin opened.
 const SNOW_OPEN_OPACITY = 0.6;
-const SNOW_CUTOUT_FEATHER = 48;
 
 const snowVariants: Variants = {
-  closed: { opacity: 1, "--snow-cutout": 0 },
+  closed: { opacity: 1 },
   opening: {
     opacity: SNOW_OPEN_OPACITY,
-    "--snow-cutout": 1,
     transition: { duration: REVEAL_DURATION * 0.5, delay: REVEAL_DURATION * 0.25, ease: REVEAL_EASE },
   },
-  open: { opacity: SNOW_OPEN_OPACITY, "--snow-cutout": 1 },
+  open: { opacity: SNOW_OPEN_OPACITY },
 };
-
-// A soft-edged rectangular hole over `box`, as two crossing gradient bands
-// unioned by the default `add` mask composite: snow shows wherever it is
-// outside the box horizontally OR vertically. --snow-cutout (0..1) is how
-// strongly the inside is masked out.
-function snowCutoutMask(box: { x: number; y: number; width: number; height: number }): string {
-  const inside = "rgba(0, 0, 0, calc(1 - var(--snow-cutout)))";
-  const band = (direction: string, start: number, end: number) =>
-    `linear-gradient(${direction}, #000 ${start - SNOW_CUTOUT_FEATHER}px, ${inside} ${start}px, ${inside} ${end}px, #000 ${end + SNOW_CUTOUT_FEATHER}px)`;
-  return `${band("to right", box.x, box.x + box.width)}, ${band("to bottom", box.y, box.y + box.height)}`;
-}
-
-// The exact complement of snowCutoutMask, for the copy of the snow behind
-// the cabin: inside the box, as strong as the front copy is masked out there,
-// feathering to nothing across the same band. The front mask unions its two
-// bands (a + b - ab), so its complement is their inverses multiplied,
-// (1 - a)(1 - b): one band each on two nested layers, since nested masks
-// multiply.
-function snowBehindMasks(box: { x: number; y: number; width: number; height: number }): [string, string] {
-  const inside = "rgba(0, 0, 0, var(--snow-cutout))";
-  const band = (direction: string, start: number, end: number) =>
-    `linear-gradient(${direction}, transparent ${start - SNOW_CUTOUT_FEATHER}px, ${inside} ${start}px, ${inside} ${end}px, transparent ${end + SNOW_CUTOUT_FEATHER}px)`;
-  return [band("to right", box.x, box.x + box.width), band("to bottom", box.y, box.y + box.height)];
-}
 
 // The smoke layer's mask: clear down to goneY, then easing (smoothstep) to
 // solid at opaqueY. Stage px, shifted into the layer, which starts
@@ -350,18 +327,8 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     );
   }
 
-  const openBox = getOpenCabinBox(layout);
-  const snowMask = snowCutoutMask(openBox);
-  const [snowBehindX, snowBehindY] = snowBehindMasks(openBox);
   const flakes = useSnowFlakes(!reducedMotion);
-  // The copy behind the cabin only needs the flakes that ever cross the open
-  // box's columns.
-  const behindLeft = openBox.x - SNOW_CUTOUT_FEATHER;
-  const behindRight = openBox.x + openBox.width + SNOW_CUTOUT_FEATHER;
-  const behindFlakes = useMemo(
-    () => flakesCrossing(flakes, layout.stageWidth, behindLeft, behindRight),
-    [flakes, layout.stageWidth, behindLeft, behindRight],
-  );
+  const snowInFront = cabinState === "closed";
 
   // Portrait keeps its prior architecture: the whole 640x720 group (shell +
   // art together) scales from its closed scale to its open one, from its
@@ -534,29 +501,9 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     </>
   );
 
-  // The snow behind the open cabin (see snowVariants). Hidden outright while
-  // the cabin is closed -- its mask is empty then anyway -- but never
-  // unmounted, so its flakes stay in step with the front copy's.
-  const snowBehind = (
-    <motion.div
-      aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 ${cabinState === "closed" ? "invisible" : ""}`}
-      style={{ maskImage: snowBehindX, WebkitMaskImage: snowBehindX }}
-      initial={initialCabinState}
-      animate={cabinState}
-      variants={snowVariants}
-    >
-      <div className="absolute inset-0" style={{ maskImage: snowBehindY, WebkitMaskImage: snowBehindY }}>
-        <SnowLayer flakes={behindFlakes} frozen={frozen} />
-      </div>
-    </motion.div>
-  );
-
   // Everything in front of the outdoors.
   const foreground = (
     <>
-      {snowBehind}
-
       {HOUSE_SIGN_ENABLED && (
         <motion.div
           className="absolute"
@@ -570,6 +517,20 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
       )}
 
       {chimneySmoke}
+
+      {/* Snow is the nearest layer of the outdoors. It sits just behind the
+          cabin, in front of the smoke, and while the cabin is closed it's
+          lifted in front of the cabin too (z-index only, so the flakes never
+          restart). See snowVariants. */}
+      <motion.div
+        aria-hidden="true"
+        className={`pointer-events-none absolute inset-0 ${snowInFront ? "z-[1]" : "z-0"}`}
+        initial={initialCabinState}
+        animate={cabinState}
+        variants={snowVariants}
+      >
+        <SnowLayer flakes={flakes} frozen={frozen} />
+      </motion.div>
 
       {/* The exterior, front wall and interior all sit in the one cabin
           frame, so they stay exactly registered while they cross-fade
@@ -599,20 +560,6 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
         </>,
       )}
 
-      {/* Snow is the nearest layer of the outdoors, falling in front of the
-          closed cabin; see snowVariants for how it hands over to the copy
-          behind the open one. */}
-      <motion.div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0"
-        style={{ maskImage: snowMask, WebkitMaskImage: snowMask }}
-        initial={initialCabinState}
-        animate={cabinState}
-        variants={snowVariants}
-      >
-        <SnowLayer flakes={flakes} frozen={frozen} />
-      </motion.div>
-
       {TITLE_CARD_ENABLED && (
         <CabinTitleCard
           x={titleCard.x}
@@ -628,7 +575,7 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
         environment={{
           snow: reducedMotion
             ? "off (reduced motion)"
-            : `${frozen ? "paused" : "active"} -- ${flakes.length} flakes in front${cabinState === "closed" ? "" : `, ${behindFlakes.length} of them also behind the open cabin (masked in over its box)`}`,
+            : `${frozen ? "paused" : "active"} -- ${flakes.length} flakes, ${snowInFront ? "in front of the cabin" : "behind the open cabin"}`,
           clouds: `${cloudSummary(clouds)} --×${cloudSpeedFactor} speed (${cabinState === "closed" ? "closed" : "open"})${frozen ? " -- paused" : ""}`,
           parallax: `sky ×${PARALLAX_ZOOM.sky} / mountains ×${PARALLAX_ZOOM.mountains} / foothills ×${PARALLAX_ZOOM.foothills} / ground ×${PARALLAX_ZOOM.ground} from the zoom focus (y ${Math.round(zoomFocusY)})`,
           birds: !BIRDS_ENABLED ? "hidden (disabled for now)" : birdsSpawning ? "active" : "inactive",
