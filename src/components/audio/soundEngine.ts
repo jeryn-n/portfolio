@@ -1,9 +1,9 @@
-import { AUDIO, AUDIO_FADE, AUDIO_VOLUME, MASTER_VOLUME_DEFAULT } from "@/data/audio";
+import { AUDIO, AUDIO_FADE, AUDIO_VOLUME, GRAMOPHONE_LOOP_GAP_MAX_MS, MASTER_VOLUME_DEFAULT, type SfxKey } from "@/data/audio";
 
 // The two seamless ambience loops.
 export type LoopKey = "worldAmbience" | "fireplace";
 // One-shot channels. Each holds a bounded number of voices (see playOneShot).
-export type OneShotChannel = "lamp" | "door" | "transitionWind" | "cat";
+export type OneShotChannel = SfxKey | "cat";
 
 // How long a stop or a mute is ramped over: short enough to read as instant,
 // long enough not to click.
@@ -81,6 +81,9 @@ export class SoundEngine {
   private readonly music: HTMLAudioElement;
   private musicWanted = false;
   private musicBroken = false;
+  // Pending while the track has ended and sits out its pause before the
+  // next play (see GRAMOPHONE_LOOP_GAP_MAX_MS).
+  private musicGapTimer: ReturnType<typeof setTimeout> | undefined;
 
   static create(): SoundEngine | null {
     if (typeof window === "undefined" || typeof AudioContext === "undefined") return null;
@@ -110,11 +113,18 @@ export class SoundEngine {
 
     // preload "none": nothing is fetched until the gramophone first plays.
     this.music = new Audio();
+    // Not `loop`: at the end it pauses a random moment, then starts over.
     this.music.preload = "none";
-    this.music.loop = true;
     this.music.src = AUDIO.music;
     this.music.addEventListener("error", () => {
       this.musicBroken = true;
+    });
+    this.music.addEventListener("ended", () => {
+      if (!this.musicWanted || !this.on) return;
+      this.musicGapTimer = setTimeout(() => {
+        this.musicGapTimer = undefined;
+        if (this.musicWanted && this.on) this.playMusic();
+      }, Math.random() * GRAMOPHONE_LOOP_GAP_MAX_MS);
     });
     const musicGain = ctx.createGain();
     musicGain.gain.value = AUDIO_VOLUME.music;
@@ -181,17 +191,17 @@ export class SoundEngine {
     else this.fadeOutLoop(loop, fade);
   }
 
-  // Whether the gramophone should be playing (while the master is on).
-  // `fromStart` rewinds it first: a fresh play starts at the top, and a stop
-  // leaves it at the top for next time.
-  setMusic(wanted: boolean, fromStart: boolean) {
+  // Whether the gramophone should be playing (while the master is on). It
+  // pauses and resumes in place -- switched off, muted or held silent, it
+  // picks up where it left off -- and only ever starts from the top on its
+  // very first play (or after it ends and comes round again by itself).
+  // Unwanted during the pause between plays, it drops the rest of that
+  // pause: wanted again, it starts over straight away. A mute keeps it.
+  setMusic(wanted: boolean) {
     this.musicWanted = wanted;
-    if (fromStart) {
-      try {
-        this.music.currentTime = 0;
-      } catch {
-        // Not seekable yet -- it's at the start anyway.
-      }
+    if (!wanted) {
+      clearTimeout(this.musicGapTimer);
+      this.musicGapTimer = undefined;
     }
     if (wanted && this.on) this.playMusic();
     else this.music.pause();
@@ -201,12 +211,22 @@ export class SoundEngine {
   // others already playing there; past that, the oldest is cut off (so 1 =
   // each play replaces the last). Each play is its own short-lived source and
   // gain, disconnected the moment it ends, so nothing accumulates. A clip
-  // that hasn't finished loading (or never will) is skipped rather than
-  // played late. Returns whether it played.
-  playOneShot(channel: OneShotChannel, src: string, volume: number, maxVoices = 1): boolean {
+  // that hasn't finished loading is skipped rather than played late -- unless
+  // `maxDelayMs` allows it to play once it has, if that's soon enough (and
+  // sound is still on). A missing clip never plays. Returns whether it played
+  // right away.
+  playOneShot(channel: OneShotChannel, src: string, volume: number, maxVoices = 1, maxDelayMs = 0): boolean {
     if (!this.on) return false;
     const buffer = this.decoded.get(src);
-    if (!buffer) return false;
+    if (!buffer) {
+      if (maxDelayMs > 0) {
+        const askedAt = performance.now();
+        void this.load(src).then((loaded) => {
+          if (loaded && performance.now() - askedAt <= maxDelayMs) this.playOneShot(channel, src, volume, maxVoices);
+        });
+      }
+      return false;
+    }
     const voices = this.voices.get(channel) ?? [];
     while (voices.length >= maxVoices) {
       const oldest = voices.shift();
@@ -240,6 +260,7 @@ export class SoundEngine {
 
   dispose() {
     clearTimeout(this.suspendTimer);
+    clearTimeout(this.musicGapTimer);
     for (const loop of Object.values(this.loops)) clearTimeout(loop.stopTimer);
     this.music.pause();
     this.music.removeAttribute("src");
@@ -263,7 +284,15 @@ export class SoundEngine {
   }
 
   private playMusic() {
-    if (this.musicBroken || !this.music.paused) return;
+    if (this.musicBroken || !this.music.paused || this.musicGapTimer !== undefined) return;
+    if (this.music.ended) {
+      // Played through (its pause over, or cut short): from the top.
+      try {
+        this.music.currentTime = 0;
+      } catch {
+        // play() starts an ended track over anyway.
+      }
+    }
     this.music.play().catch(noop);
   }
 

@@ -72,9 +72,10 @@ export const CABIN_ENTRY_REGION: ReadonlyArray<readonly [number, number]> = [
 //                 x 85-142, y 340-412; pole down to y 535; a faint glow
 //                 x 85-184, y 305-465). The box is the shade and the top of
 //                 the pole, the part anyone clicks. Unclipped (clip: false),
-//                 so the rest of the pole and the glow still show. It never
-//                 grows on hover, only brightens a touch; a press still gives
-//                 a little, about the foot of its pole (LAMP_FOOT).
+//                 so the rest of the pole and the glow still show. Hover
+//                 changes nothing about how it looks (the hand cursor is the
+//                 cue); a press still gives a little, about the foot of its
+//                 pole (LAMP_FOOT).
 //   linkedin / about -- the two icons in the picture frame over the
 //                 fireplace (linkedin.png x 275-315, about-icon.png x 315-364,
 //                 both y 335-374). Neither moves at all: hover/focus only
@@ -92,7 +93,7 @@ export interface CabinObjectBounds {
   // clickable (the lamp's pole and glow).
   clip?: boolean;
   // A CSS brightness() the art eases to on hover/focus (and back), e.g.
-  // 1.15. Unset: no change in brightness.
+  // 1.1. Unset: no change in brightness.
   hoverBrightness?: number;
   // false: a press doesn't shrink it (PRESS_SCALE) -- for objects that must
   // never move.
@@ -106,7 +107,6 @@ export const CABIN_OBJECTS = {
   lamp: {
     ...LAMP,
     hoverScale: 1,
-    hoverBrightness: 1.06,
     transformOrigin: `${LAMP_FOOT.x - LAMP.x}px ${LAMP_FOOT.y - LAMP.y}px`,
     clip: false,
   },
@@ -120,8 +120,8 @@ export const CABIN_OBJECTS = {
     transformOrigin: "center",
     textBox: { x: 220, y: 212, width: 200, height: 50 },
   },
-  linkedin: { x: 273, y: 333, width: 44, height: 44, hoverScale: 1, hoverBrightness: 1.15, press: false, transformOrigin: "center" },
-  about: { x: 315, y: 333, width: 52, height: 44, hoverScale: 1, hoverBrightness: 1.15, press: false, transformOrigin: "center" },
+  linkedin: { x: 273, y: 333, width: 44, height: 44, hoverScale: 1, hoverBrightness: 1.1, press: false, transformOrigin: "center" },
+  about: { x: 315, y: 333, width: 52, height: 44, hoverScale: 1, hoverBrightness: 1.1, press: false, transformOrigin: "center" },
   banner: { x: 496, y: 351, width: 49, height: 113, hoverScale: 1.04, transformOrigin: "right center" },
   cat: { x: 416, y: 484, width: 111, height: 51, hoverScale: 1.05, transformOrigin: "bottom center" },
 } satisfies Record<string, CabinObjectBounds>;

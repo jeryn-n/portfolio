@@ -9,6 +9,7 @@ import {
   AUDIO_VOLUME,
   CAT_MEOW_MAX_OVERLAP,
   CAT_MEOW_WEIGHTS,
+  GRAMOPHONE_SFX_MAX_DELAY_MS,
   MASTER_VOLUME_DEFAULT,
   type SfxKey,
 } from "@/data/audio";
@@ -37,7 +38,7 @@ interface AudioContextValue {
   routeIsolated: boolean;
   toggleMaster: () => void;
   // From the slider: 0 mutes; anything above sets the volume and unmutes.
-  // The slider always shows the volume -- 50% on a fresh, silent visit, 68%
+  // The slider always shows the volume -- 72% on a fresh, silent visit, 68%
   // after muting at 68% -- and the button's icon shows whether it's muted.
   setMasterVolume: (volume: number) => void;
   // Called as the visitor takes hold of the slider (pointerdown, focus,
@@ -94,8 +95,14 @@ function isIsolatedRoute(pathname: string | null): boolean {
 //                             musicEnabled
 //   sound button, on -> off   everything stops at once; musicEnabled kept
 //   slider to 0 / above 0     as the button, off / on (at that volume)
-//   gramophone, master off    master on + music on, track from the top
-//   gramophone, master on     music only: on from the top / off and rewound
+//   gramophone, master off    master on + music on (+ its "on" click sound)
+//   gramophone, master on     music only: resumed / paused in place, with
+//                             its "on" / "off" click sound
+// The music is only ever paused and resumed, never rewound: it starts at the
+// top on its first play and, each time it ends, comes round again by itself
+// after a random pause (GRAMOPHONE_LOOP_GAP_MAX_MS). Its click sounds come
+// from the gramophone click alone -- never from a mute, /video, a scene
+// change or the track coming round again.
 //
 // On the video portfolio (VIDEO_PATH) all of it is held silent, and comes
 // back as it was on leaving.
@@ -131,7 +138,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   // Brings the engine in line with `current`, creating it the first time
   // sound is switched on.
-  const apply = useCallback((musicFromStart = false) => {
+  const apply = useCallback(() => {
     if (current.current.master && current.current.volume === 0) {
       // Switched on with the slider at 0: back up to where it was.
       current.current.volume = current.current.restoreVolume;
@@ -157,7 +164,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       AUDIO_FADE.sceneLevel,
     );
     engine.setLoop("fireplace", interior ? 1 : 0, interior ? AUDIO_FADE.fireplaceIn : AUDIO_FADE.fireplaceOut);
-    engine.setMusic(music && !silent, musicFromStart);
+    engine.setMusic(music && !silent);
     if (master) engine.setOn(true);
   }, []);
 
@@ -192,6 +199,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     current.current.gestureVolume = current.current.volume;
   }, []);
 
+  // The only place the gramophone's own click sounds play: a hand on the
+  // gramophone. The music itself pauses and resumes in place (see setMusic).
   const pressGramophone = useCallback(() => {
     const state = current.current;
     if (!state.master) {
@@ -202,8 +211,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     } else {
       state.music = !state.music;
     }
-    apply(true);
+    apply();
     setMusicEnabled(state.music);
+    if (state.mode !== "silent" && !state.isolated) {
+      const key = state.music ? "gramophoneOn" : "gramophoneOff";
+      // If this click is what switched sound on, the engine was only just
+      // created and the clip is still loading: let it catch up a moment.
+      engineRef.current?.playOneShot(key, AUDIO.sfx[key], AUDIO_VOLUME[key], 1, GRAMOPHONE_SFX_MAX_DELAY_MS);
+    }
   }, [apply]);
 
   const setAmbientMode = useCallback(

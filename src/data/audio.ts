@@ -7,7 +7,7 @@
 // in at its path is all it takes for it to start playing (on the next load).
 //
 //   /public/audio/ambience/ -- the two seamless loops
-//   /public/audio/music/    -- the gramophone's track (loops)
+//   /public/audio/music/    -- the gramophone's track (repeats, with a pause)
 //   /public/audio/sfx/      -- one-shots
 //
 // What reaches the speakers is always three numbers multiplied, never folded
@@ -30,6 +30,11 @@ export const AUDIO = {
     lamp: "/audio/sfx/lamp-click.mp3",
     door: "/audio/sfx/door-open.mp3",
     transitionWind: "/audio/sfx/transition-wind.mp3",
+    // The gramophone being switched on / off by hand -- only ever by a
+    // click on it, never when the music stops or resumes for any other
+    // reason (a mute, /video, a scene change, the track coming round again).
+    gramophoneOn: "/audio/sfx/gramophone-on.mp3",
+    gramophoneOff: "/audio/sfx/gramophone-off.mp3",
   },
   catMeows: [
     "/audio/sfx/cat-meow-01.mp3",
@@ -55,13 +60,17 @@ export const CAT_MEOW_MAX_OVERLAP = 6;
 // master volume. Tune these by ear; the derivations note the last pass's
 // values they were adjusted from.
 export const AUDIO_VOLUME = {
-  worldAmbience: 0.3675, // 0.35 x 1.05
+  worldAmbience: 0.48601875, // 0.35 x 1.05 x 1.15 x 1.15
   fireplace: 0.385, // 0.35 x 1.10
-  music: 0.65,
+  music: 0.4501575, // 0.65 x 0.90 x 0.90 x 0.90 x 0.95
   lamp: 0.6,
   door: 0.6,
   transitionWind: 0.5,
-  cat: 0.45, // 0.6 x 0.75
+  // Provisional until the real files are in -- SFX channels of their own,
+  // not tied to the music's volume.
+  gramophoneOn: 0.6,
+  gramophoneOff: 0.6,
+  cat: 0.406125, // 0.6 x 0.75 x 0.95 x 0.95
 };
 
 // Where you are, as a multiplier on a loop's base volume. Outdoors
@@ -69,11 +78,22 @@ export const AUDIO_VOLUME = {
 export const AUDIO_SCENE_LEVEL = {
   // The outdoor ambience while the open cabin is the scene: still there,
   // but muffled by the walls.
-  outdoorInCabin: 0.5,
+  outdoorInCabin: 0.55125, // 0.5 x 1.05 x 1.05
 };
 
 // The master volume slider's starting point on every fresh visit, 0-1.
-export const MASTER_VOLUME_DEFAULT = 0.5;
+export const MASTER_VOLUME_DEFAULT = 0.72; // 0.5 x 1.2 x 1.2
+
+// When the gramophone's track ends it sits silent for a random 0 to this
+// many ms before starting over from the top -- the record being turned. The
+// gramophone stays on throughout.
+export const GRAMOPHONE_LOOP_GAP_MAX_MS = 10_000;
+
+// A gramophone click sound that hasn't finished loading yet (the click that
+// switches sound on creates the engine, so its files are only just being
+// fetched) still plays if it arrives within this many ms; later than that
+// it's dropped rather than heard out of step with the click.
+export const GRAMOPHONE_SFX_MAX_DELAY_MS = 600;
 
 // Fade lengths, seconds. Muting is never faded beyond a click-free instant.
 export const AUDIO_FADE = {

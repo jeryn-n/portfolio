@@ -119,9 +119,10 @@ offset. Objects are handled through one box each in `CABIN_OBJECTS`
 (art outside it is clipped, unless the box says `clip: false` -- the lamp,
 whose pole and glow reach past its clickable shade), the hitbox, and what scales on hover/focus
 about its `transformOrigin` — never the whole canvas. Objects that must
-not move (the lamp, the two picture-frame icons) have `hoverScale: 1` and
-brighten instead (`hoverBrightness`); the icons don't give on a press
-either (`press: false`). The sign's HTML
+not move (the lamp, the two picture-frame icons) have `hoverScale: 1`; the
+icons brighten instead (`hoverBrightness`) and don't give on a press
+(`press: false`), while the lamp shows no hover change at all, only its
+press and the hand cursor. The sign's HTML
 name/title live inside its window so they scale with it. The lamp (cuts
 between `lamp-on.png` / `lamp-off.png`, both always mounted; the cut waits
 until the new art has decoded, so there's never a frame without a lamp), gramophone (music, see
@@ -152,7 +153,7 @@ The old separate prop sprites are switched off (`SPRITE_PROPS_ENABLED`).
 `AudioProvider` (above the route tree) holds two separate switches --
 `masterSoundEnabled` (the bottom-right `SoundButton`) and `musicEnabled`
 (the gramophone) -- both off on every fresh visit, plus a master volume
-(50% on a fresh visit; its own context, `useMasterVolume`, so a slider drag
+(`MASTER_VOLUME_DEFAULT`, 72%, on a fresh visit; its own context, `useMasterVolume`, so a slider drag
 re-renders only the control). Nothing makes a sound until the visitor turns
 it on with the button, its slider or the gramophone, and that gesture
 creates the Web Audio engine (`soundEngine.ts`), so playback always starts in
@@ -161,7 +162,12 @@ the scene, with the ambience muffled to `AUDIO_SCENE_LEVEL.outdoorInCabin`),
 one-shots allowed, music only if `musicEnabled`. Master off (button, or
 slider at 0): everything stops at once; `musicEnabled` and the last nonzero
 volume are kept. The gramophone with master off turns everything on, music
-from the top; with master on it toggles the music only. Every gain is base
+included; with master on it toggles the music only. The track is only ever
+paused and resumed in place (it starts at 0 on its first play; at its end it
+waits a random 0-`GRAMOPHONE_LOOP_GAP_MAX_MS` and starts over, the
+gramophone staying on), and only a gramophone click plays its `gramophoneOn` /
+`gramophoneOff` click sounds -- never a mute, `/video`, a scene change or
+the loop. Every gain is base
 mix (`AUDIO_VOLUME`) x scene level x master volume, never folded together.
 Cat meows overlap (up to `CAT_MEOW_MAX_OVERLAP`). Routes pick an
 `AmbientMode`: detail pages drop the ambience but keep the music; `/video`
