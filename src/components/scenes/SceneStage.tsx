@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, Suspense, useContext, useEffect, useState, type ReactNode } from "react";
+import type { StageViewport } from "@/lib/layout";
 import { getCompositionMode, getStageSize, type CompositionMode } from "@/lib/stage";
 import { CompositionModeProvider } from "./CompositionModeContext";
 
@@ -11,24 +12,41 @@ interface StageMetrics {
   scale: number;
   offsetX: number;
   offsetY: number;
+  visible: StageViewport;
 }
 
 function computeStageMetrics(viewportWidth: number, viewportHeight: number): StageMetrics {
   const mode = getCompositionMode(viewportWidth, viewportHeight);
   const { width: stageWidth, height: stageHeight } = getStageSize(mode);
   const scale = Math.max(viewportWidth / stageWidth, viewportHeight / stageHeight);
+  const offsetX = (viewportWidth - stageWidth * scale) / 2;
+  const offsetY = (viewportHeight - stageHeight * scale) / 2;
 
   return {
     mode,
     stageWidth,
     stageHeight,
     scale,
-    offsetX: (viewportWidth - stageWidth * scale) / 2,
-    offsetY: (viewportHeight - stageHeight * scale) / 2,
+    offsetX,
+    offsetY,
+    visible: {
+      x: -offsetX / scale,
+      y: -offsetY / scale,
+      width: viewportWidth / scale,
+      height: viewportHeight / scale,
+      scale,
+    },
   };
 }
 
 const StageReadyContext = createContext(false);
+const StageViewportContext = createContext<StageViewport | null>(null);
+
+// The part of the stage the viewport actually shows, in stage px -- the stage
+// covers the viewport, so one axis is usually cropped. Null outside a stage.
+export function useStageViewport(): StageViewport | null {
+  return useContext(StageViewportContext);
+}
 
 // True once the stage has measured the viewport and rendered its scene into
 // it -- before that there is nothing of the world on the page at all. Read by
@@ -78,7 +96,9 @@ export function SceneStage({ children, viewportUI, overlay }: SceneStageProps) {
             transform: `translate(${metrics.offsetX}px, ${metrics.offsetY}px) scale(${metrics.scale})`,
           }}
         >
-          <CompositionModeProvider value={metrics.mode}>{children}</CompositionModeProvider>
+          <CompositionModeProvider value={metrics.mode}>
+            <StageViewportContext.Provider value={metrics.visible}>{children}</StageViewportContext.Provider>
+          </CompositionModeProvider>
         </div>
       )}
       {/* viewportUI (e.g. ViewportNavArrows) reads useSearchParams for the

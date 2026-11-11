@@ -105,7 +105,7 @@ export const EXPERIENCE_ENTRIES: PortfolioEntry[] = [
       {
         title: "Design",
         image: "/portfolio/experience/experience-1-feature-2.jpg",
-        description: "From logos and page designs to marketing material and presentations, I managed the creative development of this project from development to deployment.",
+        description: "From logos and page designs to marketing material and presentations, I managed the creative development of this project from ideation to deployment.",
       },
     ],
     skills: [

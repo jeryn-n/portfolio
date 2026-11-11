@@ -81,7 +81,7 @@ export function EdgeTab({ edge, ariaLabel, label, revealed, interactive, revealD
         disabled={!revealed || !interactive}
         className={`group block bg-transparent p-0 opacity-80 transition-[opacity,translate] duration-150 ease-out focus-visible:opacity-100 focus-visible:outline-none ${
           top ? "hover:translate-y-[5px] focus-visible:translate-y-[5px]" : "hover:-translate-y-[5px] focus-visible:-translate-y-[5px]"
-        } hover:opacity-100 ${enabled ? "pointer-events-auto cursor-pointer" : "pointer-events-none"}`}
+        } hover:opacity-100 ${enabled ? "pointer-events-auto cursor-hand" : "pointer-events-none"}`}
       >
         {/* Two stacked, identically stair-stepped boxes: the outer one is the
             light-blue edge, the inner (inset 2px) the navy face. */}

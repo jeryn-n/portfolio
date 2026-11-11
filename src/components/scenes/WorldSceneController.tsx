@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { getSceneLayout, getSkyBridgeHeight } from "@/lib/layout";
+import { getSceneLayout, getSkyBridgeHeight, getSmokeCorridorHeight } from "@/lib/layout";
 import { REDUCED_REVEAL_DURATION, REVEAL_DURATION } from "@/lib/reveal";
 import { SCENE_TRAVEL_DURATION, SCENE_TRAVEL_EASE } from "@/lib/sceneTravel";
 import { DESKTOP_STAGE_HEIGHT, PORTRAIT_STAGE_HEIGHT } from "@/lib/stage";
@@ -96,6 +96,10 @@ export function WorldSceneController() {
   // environment shows its real sky through the gap while travelling. Zero
   // on portrait, whose cabin window starts at row 0.
   const bridge = getSkyBridgeHeight(getSceneLayout(mode));
+  // The cabin's foreground layer reaches this far above its stage, so the
+  // chimney smoke can rise past the cabin's top edge and fade out there
+  // rather than being cut off by it (see SmokeFade in src/lib/layout.ts).
+  const smokeCorridor = getSmokeCorridorHeight(getSceneLayout(mode));
 
   const cabinY = scene === "cabin" ? 0 : scene === "experience" ? stageHeight + bridge : -stageHeight;
   const experienceY = scene === "experience" ? 0 : -(stageHeight + bridge);
@@ -174,15 +178,19 @@ export function WorldSceneController() {
         transition={dimTransition}
       />
 
+      {/* The cabin's foreground clips like the scenes do, except that it
+          reaches smokeCorridor above its stage; CabinScene portals into the
+          inner, stage-sized box. */}
       <motion.div
-        ref={setForegroundLayer}
-        className="absolute inset-0 z-20 overflow-hidden"
-        style={{ pointerEvents: scene === "cabin" ? "auto" : "none" }}
+        className="absolute inset-x-0 z-20 overflow-hidden"
+        style={{ top: -smokeCorridor, height: stageHeight + smokeCorridor, pointerEvents: scene === "cabin" ? "auto" : "none" }}
         aria-hidden={scene !== "cabin"}
         initial={false}
         animate={{ y: cabinY }}
         transition={transition}
-      />
+      >
+        <div ref={setForegroundLayer} className="absolute inset-x-0" style={{ top: smokeCorridor, height: stageHeight }} />
+      </motion.div>
 
       {debug && (
         <span className="pointer-events-none absolute bottom-2 left-2 z-30 rounded bg-black/60 px-1 text-[10px] uppercase tracking-wide text-yellow-300">

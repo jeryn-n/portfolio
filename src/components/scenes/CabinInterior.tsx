@@ -10,7 +10,6 @@ import { ASSETS, type ArtAssetDef } from "@/data/assets";
 import { SITE } from "@/data/site";
 import { CABIN_INTERIOR_LAYOUT, CABIN_INTERIOR_PROP_SCALE, CABIN_OBJECTS, GRAMOPHONE_HINT } from "@/lib/layout";
 import { ExclamationMark, singleBouncePattern } from "./ExclamationMark";
-import { PictureFrame } from "./PictureFrame";
 import { FireGlow, RegisteredCabinArt, RegisteredCabinObject } from "./RegisteredCabinObject";
 
 // The props are now the registered overlays below (or drawn into the
@@ -121,9 +120,9 @@ function GramophoneHotspot({ isOpen, isPlaying, onClick }: GramophoneHotspotProp
 }
 
 // Click always gives a quick squash/scale reaction; a meow only plays if
-// foley is enabled (and only if at least one meow source is configured).
+// sound is on.
 function CatHotspot({ isOpen }: { isOpen: boolean }) {
-  const { playRandomMeow } = useAudio();
+  const { playCatMeow } = useAudio();
   const controls = useAnimationControls();
 
   function handleClick() {
@@ -132,7 +131,7 @@ function CatHotspot({ isOpen }: { isOpen: boolean }) {
       scaleY: [1, 0.85, 1.05, 1],
       transition: { duration: 0.35, ease: "easeOut" },
     });
-    playRandomMeow();
+    playCatMeow();
   }
 
   return (
@@ -185,10 +184,10 @@ interface CabinInteriorProps {
 }
 
 // The open cabin: the base interior artwork, its registered object overlays
-// (fire, gramophone, sign, banner, cat), and real UI laid over the parts
-// that are interactive. Layout is cabin-local (0,0 = top-left of the cabin's
-// design box) -- the same values apply in both desktop and portrait
-// composition modes -- and comes from CABIN_OBJECTS / CABIN_ART_HOTSPOTS in
+// (fire, lamp, gramophone, sign, picture-frame icons, banner, cat), and real
+// UI laid over the parts that are interactive. Layout is cabin-local (0,0 =
+// top-left of the cabin's design box) -- the same values apply in both
+// desktop and portrait composition modes -- and comes from CABIN_OBJECTS in
 // src/lib/layout.ts.
 //
 // Everything is inert until the cabin is fully open: during the reveal the
@@ -198,8 +197,12 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
   // Cleared immediately on gramophone click, or after the timer -- whichever
   // comes first. Never restored again during this mounted cabin session.
   const [dismissed, setDismissed] = useState(false);
-  const { toggleMusic, musicPlaying, playSfx } = useAudio();
+  // The lamp starts lit. Its look never depends on sound; only the click
+  // does.
+  const [lampOn, setLampOn] = useState(true);
+  const { pressGramophone, masterSoundEnabled, musicEnabled, playSfx, playCatMeow } = useAudio();
   const { openPanel, emailPopoverOpen, toggleEmailPopover, closeEmailPopover } = useSiteUI();
+  const musicPlaying = masterSoundEnabled && musicEnabled;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -209,26 +212,23 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
 
   const showGramophoneHint = GRAMOPHONE_HINT_ENABLED && isOpen && !dismissed;
 
-  // The gramophone overlay's click: audio is off for now, so all it does is
-  // put the hint away.
-  function dismissGramophoneHint() {
+  // Puts the hint away and plays or stops the music -- or, with sound off,
+  // switches all of it on (see AudioProvider).
+  function handleGramophoneClick() {
     setDismissed(true);
+    pressGramophone();
   }
 
-  // The old gramophone sprite's click, when SPRITE_PROPS_ENABLED brings it
-  // back: dismiss the hint and toggle the music.
-  function handleGramophoneClick() {
-    dismissGramophoneHint();
-    toggleMusic();
+  function toggleLamp() {
+    setLampOn((on) => !on);
+    playSfx("lamp");
   }
 
   function openAbout() {
-    playSfx("click");
     openPanel("about");
   }
 
   function openEducation() {
-    playSfx("click");
     openPanel("education");
   }
 
@@ -242,16 +242,29 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
       {/* Back to front -- which is also the Tab order of the focusable ones.
           Objects that don't overlap can go in any order, so the sign
           (About), the picture frame and the banner (Education) are in
-          reading order; the cat stays in front of the banner beside it. */}
+          reading order; the gramophone is in front of the lamp's box where
+          they meet, and the cat in front of the banner beside it. */}
       <FireGlow asset={ASSETS.cabinFireGlow} />
       <RegisteredCabinArt asset={ASSETS.cabinFire} />
+
+      {/* The floor lamp switches on and off whether or not sound is on; the
+          click sound is extra. */}
+      <RegisteredCabinObject
+        asset={ASSETS.cabinLampOn}
+        alternateAsset={ASSETS.cabinLampOff}
+        showAlternate={!lampOn}
+        bounds={CABIN_OBJECTS.lamp}
+        active={isOpen}
+        label={lampOn ? "Turn lamp off" : "Turn lamp on"}
+        onClick={toggleLamp}
+      />
 
       <RegisteredCabinObject
         asset={ASSETS.cabinGramophone}
         bounds={CABIN_OBJECTS.gramophone}
         active={isOpen}
-        label="Gramophone"
-        onClick={dismissGramophoneHint}
+        label={musicPlaying ? "Stop the gramophone" : "Play the gramophone"}
+        onClick={handleGramophoneClick}
       />
 
       {/* The sign hanging from the top beam opens About. The name and title
@@ -288,10 +301,26 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
         <span className="sr-only"> — About me</span>
       </RegisteredCabinObject>
 
-      {/* The picture frame above the fireplace: both icons are one overlay
-          over two invisible click halves -- LinkedIn on
-          the left, About Me on the right. */}
-      <PictureFrame active={isOpen} onLinkedIn={() => playSfx("click")} onAbout={openAbout} />
+      {/* The picture frame above the fireplace: LinkedIn on the left, About
+          Me on the right, each its own overlay, hover and click. Either
+          falls back to its half of the old combined icons.png if its own
+          file is missing. */}
+      <RegisteredCabinObject
+        asset={ASSETS.cabinLinkedIn}
+        fallbackAsset={ASSETS.cabinIcons}
+        bounds={CABIN_OBJECTS.linkedin}
+        active={isOpen}
+        href={SITE.linkedinUrl}
+        label="Open LinkedIn profile (opens in a new tab)"
+      />
+      <RegisteredCabinObject
+        asset={ASSETS.cabinAboutIcon}
+        fallbackAsset={ASSETS.cabinIcons}
+        bounds={CABIN_OBJECTS.about}
+        active={isOpen}
+        label="Open About Me"
+        onClick={openAbout}
+      />
 
       {/* The UC Irvine banner on the right wall opens Education. */}
       <RegisteredCabinObject
@@ -302,12 +331,13 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
         onClick={openEducation}
       />
 
-      {/* A click or tap makes the cat hop once. No meow yet. */}
+      {/* A click or tap makes the cat hop once, and meow if sound is on. */}
       <RegisteredCabinObject
         asset={ASSETS.cabinCat}
         bounds={CABIN_OBJECTS.cat}
         active={isOpen}
         label="Pet the cat"
+        onClick={playCatMeow}
         bounce
       />
 
@@ -333,19 +363,13 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
                 label="Email"
                 glyph="✉"
                 disabled={!isOpen}
-                onClick={() => {
-                  playSfx("click");
-                  toggleEmailPopover();
-                }}
+                onClick={toggleEmailPopover}
               />
               <ContactButton
                 label="LinkedIn"
                 glyph="in"
                 disabled={!isOpen}
-                onClick={() => {
-                  playSfx("click");
-                  window.open(SITE.linkedinUrl, "_blank", "noopener,noreferrer");
-                }}
+                onClick={() => window.open(SITE.linkedinUrl, "_blank", "noopener,noreferrer")}
               />
               <ContactButton label="About" glyph="i" disabled={!isOpen} onClick={openAbout} />
             </div>
@@ -364,10 +388,7 @@ export function CabinInterior({ isOpen }: CabinInteriorProps) {
             y={flagLayout.y}
             label="UCI flag"
             isOpen={isOpen}
-            onClick={() => {
-              playSfx("click");
-              openPanel("education");
-            }}
+            onClick={openEducation}
           />
 
           <GramophoneHotspot isOpen={isOpen} isPlaying={musicPlaying} onClick={handleGramophoneClick} />

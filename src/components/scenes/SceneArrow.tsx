@@ -97,7 +97,7 @@ export function SceneArrow({
         // arrow at the top of the screen, above it at the bottom. Nothing
         // behind it -- hover just dims it and grows it a touch.
         className={`relative isolate flex ${edge === "bottom" ? "flex-col-reverse" : "flex-col"} items-center gap-1 bg-transparent p-1 transition-[opacity,transform] duration-150 ease-out hover:scale-105 hover:opacity-80 active:scale-100 ${
-          revealed && interactive ? "pointer-events-auto cursor-pointer" : "pointer-events-none"
+          revealed && interactive ? "pointer-events-auto cursor-hand" : "pointer-events-none"
         }`}
       >
         <motion.span

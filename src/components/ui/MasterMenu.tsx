@@ -4,14 +4,10 @@ import { AnimatePresence, motion } from "motion/react";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useEffect, useRef } from "react";
 import { useWorldScene, type Scene } from "@/components/scenes/WorldSceneContext";
-import { PROJECTS_ENABLED, SITE } from "@/data/site";
+import { PROJECTS_ENABLED, SITE, VIDEO_PATH as VIDEOS_PATH } from "@/data/site";
 import { useSiteUI } from "./SiteUIProvider";
 
 type MenuItemKind = "home" | "experience" | "projects" | "about" | "resume" | "videos";
-
-// The standalone video editing portfolio. The menu is its only entry point
-// on the site -- it's no part of the world's scene travel.
-const VIDEOS_PATH = "/video";
 
 // Projects is left out while it's hidden (see PROJECTS_ENABLED).
 const MENU_ITEMS: Array<{ label: string; kind: MenuItemKind }> = [

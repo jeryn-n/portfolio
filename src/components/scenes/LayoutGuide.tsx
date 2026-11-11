@@ -1,9 +1,11 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+import { useAudio, useMasterVolume } from "@/components/audio/AudioProvider";
 import { ASSETS } from "@/data/assets";
+import { AUDIO_SCENE_LEVEL } from "@/data/audio";
 import {
-  CABIN_ART_HOTSPOTS,
+  CABIN_ENTRY_REGION,
   CABIN_HEIGHT,
   CABIN_OBJECTS,
   CABIN_WIDTH,
@@ -11,8 +13,10 @@ import {
   EXTERIOR_ART_HEIGHT,
   EXTERIOR_ART_WIDTH,
   getOpenCabinBox,
-  getSceneLayout,
+  getSmokeCorridorHeight,
   GRAMOPHONE_HINT,
+  type CabinObjectBounds,
+  type SceneLayout,
 } from "@/lib/layout";
 import type { CompositionMode } from "@/lib/stage";
 
@@ -24,27 +28,49 @@ interface EnvironmentStatus {
   birds: string;
   airplane: string;
   parallax: string;
+  // Whether the cabin scene has asked for the interior's soundscape (see
+  // AudioStatus).
+  interiorAmbience: boolean;
+}
+
+// The sound state, live: master on/muted and volume, the gramophone's wanted
+// state, the outdoor ambience's scene level and the fireplace. Its own
+// component, so only the guide follows the volume slider.
+function AudioStatus({ interior }: { interior: boolean }) {
+  const { masterSoundEnabled, musicEnabled } = useAudio();
+  const volume = useMasterVolume();
+  return (
+    <div className="text-white/70">
+      Audio: master {masterSoundEnabled ? "on" : "muted"} at {Math.round(volume * 100)}% -- music{" "}
+      {musicEnabled ? "wanted" : "off"} -- outdoor ambience x{interior ? AUDIO_SCENE_LEVEL.outdoorInCabin : 1} (
+      {interior ? "muffled inside the cabin" : "outdoors"}) -- fireplace{" "}
+      {interior ? (masterSoundEnabled ? "playing" : "wanted, muted") : "off"} (AUDIO_VOLUME / AUDIO_SCENE_LEVEL in
+      src/data/audio.ts)
+    </div>
+  );
 }
 
 interface LayoutGuideProps {
   mode: CompositionMode;
+  // The scene's layout as fitted to this screen (see fitSceneLayout).
+  layout: SceneLayout;
   environment?: EnvironmentStatus;
 }
 
 // Lightweight non-production composition guide for layout calibration.
 // Activated by ?debug=layout -- never affects layout or intercepts pointer
 // events, and renders nothing without the query parameter. Distinguishes
-// three categories: WORLD/STAGE elements (cabin, clouds, sign, title card),
-// CABIN-LOCAL elements (interior props + door hint), and VIEWPORT UI (nav
-// arrows -- those render their own "Viewport UI" badge in SceneArrow since
-// they live outside this stage-coordinate SVG entirely).
-export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
+// three categories: WORLD/STAGE elements (cabin, clouds, sign, title card,
+// the smoke's fade band), CABIN-LOCAL elements (interior objects, the entry
+// polygon, the hints), and VIEWPORT UI (nav arrows -- those render their own
+// "Viewport UI" badge in SceneArrow since they live outside this
+// stage-coordinate SVG entirely).
+export function LayoutGuide({ mode, layout, environment }: LayoutGuideProps) {
   const searchParams = useSearchParams();
   const showGuide = searchParams.get("debug") === "layout";
 
   if (!showGuide) return null;
 
-  const layout = getSceneLayout(mode);
   const stageW = layout.stageWidth;
   const stageH = layout.stageHeight;
   const cabinX = layout.cabinX;
@@ -79,10 +105,6 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
           h: shellH * layout.cabinArt.closedArtScale,
         }
       : null;
-  const portraitOpen =
-    layout.mode === "portrait"
-      ? { w: CABIN_WIDTH * layout.cabinScale.openScale, h: CABIN_HEIGHT * layout.cabinScale.openScale }
-      : null;
   // The interior is only ever seen open, so its cabin-local boxes are drawn
   // where the OPEN cabin puts them (both modes).
   const openBox = getOpenCabinBox(layout);
@@ -95,8 +117,8 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
   });
   const objects = Object.entries(CABIN_OBJECTS).map(([key, bounds]) => ({
     key,
-    name: key[0].toUpperCase() + key.slice(1),
-    bounds,
+    name: key === "linkedin" ? "LinkedIn" : key[0].toUpperCase() + key.slice(1),
+    bounds: bounds as CabinObjectBounds,
     rect: toStage(bounds),
     textRect: "textBox" in bounds ? toStage(bounds.textBox) : null,
   }));
@@ -122,6 +144,21 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
     { key: "gramophone hint", hint: GRAMOPHONE_HINT, rect: hintBox(GRAMOPHONE_HINT, { ...openBox, scale: openScale }) },
   ];
 
+  // The closed cabin's click polygon, where the CLOSED cabin puts it.
+  const entryPoints = CABIN_ENTRY_REGION.map(
+    ([x, y]) => `${closedFrame.x + x * closedFrame.scale},${closedFrame.y + y * closedFrame.scale}`,
+  ).join(" ");
+  // Its label sits under its bottom-left, clear of the open cabin's labels.
+  const entryLabel = {
+    x: closedFrame.x + Math.min(...CABIN_ENTRY_REGION.map(([x]) => x)) * closedFrame.scale,
+    y: closedFrame.y + Math.max(...CABIN_ENTRY_REGION.map(([, y]) => y)) * closedFrame.scale,
+  };
+
+  // The smoke's world-space fade (stage px of this scene; negative is above
+  // the stage, in the foreground layer's corridor -- only seen mid-travel).
+  const smoke = layout.smokeFade;
+  const smokeCorridor = getSmokeCorridorHeight(layout);
+
   const cloudBands = [
     { kind: "very large", band: layout.clouds.large, color: "#a78bfa" },
     { kind: "medium", band: layout.clouds.medium, color: "#38bdf8" },
@@ -130,7 +167,7 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
 
   return (
     <>
-      <svg className="pointer-events-none absolute inset-0 left-0 top-0 h-full w-full">
+      <svg className="pointer-events-none absolute inset-0 left-0 top-0 h-full w-full overflow-visible">
         {/* WORLD/STAGE: stage outline + centerlines */}
         <rect x={0} y={0} width={stageW} height={stageH} fill="none" stroke="#00ff00" strokeWidth="2" opacity="0.3" />
         <line x1={stageW / 2} y1={0} x2={stageW / 2} y2={stageH} stroke="#00ff00" strokeWidth="1" opacity="0.2" strokeDasharray="4,4" />
@@ -164,29 +201,26 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
           />
         )}
         {/* WORLD/STAGE: portrait open bounds (dashed) -- the whole group
-            grows to this from the bottom-center as the cabin opens. */}
-        {portraitOpen && (
-          <rect
-            x={cabinX + (CABIN_WIDTH - portraitOpen.w) / 2}
-            y={cabinY + CABIN_HEIGHT - portraitOpen.h}
-            width={portraitOpen.w}
-            height={portraitOpen.h}
-            fill="none"
-            stroke="#3b82f6"
-            strokeWidth="1"
-            opacity="0.45"
-            strokeDasharray="6,3"
-          />
+            grows to this from the bottom-center as the cabin opens, fitted
+            to this screen. */}
+        {layout.mode === "portrait" && (
+          <rect {...openBox} fill="none" stroke="#3b82f6" strokeWidth="1" opacity="0.45" strokeDasharray="6,3" />
         )}
 
         {/* WORLD/STAGE: title card + house sign bounds */}
         <rect x={titleCard.x} y={titleCard.y} width={ASSETS.titleCard.designWidth} height={ASSETS.titleCard.designHeight} fill="none" stroke="#00ffff" strokeWidth="1" opacity="0.5" />
         <rect x={houseSign.x} y={houseSign.y} width={ASSETS.houseSign.designWidth} height={ASSETS.houseSign.designHeight} fill="none" stroke="#00ffff" strokeWidth="1" opacity="0.5" />
 
-        {/* CABIN-LOCAL: interior hotspot bounds, on the open cabin */}
-        {Object.entries(CABIN_ART_HOTSPOTS).map(([key, val]) => (
-          <rect key={key} {...toStage(val)} fill="none" stroke="#ff00ff" strokeWidth="1" opacity="0.5" />
-        ))}
+        {/* WORLD/STAGE: the smoke's fade band -- solid below the lower line,
+            gone above the upper one -- and the top of its clipped layer. */}
+        <g stroke="#e2e8f0" strokeWidth="1.5" opacity="0.8">
+          <line x1={0} y1={smoke.opaqueY} x2={stageW} y2={smoke.opaqueY} strokeDasharray="14,6" />
+          <line x1={0} y1={smoke.goneY} x2={stageW} y2={smoke.goneY} strokeDasharray="4,6" />
+          <line x1={0} y1={-smokeCorridor} x2={stageW} y2={-smokeCorridor} stroke="#f87171" strokeDasharray="2,4" />
+        </g>
+
+        {/* CABIN-LOCAL: the closed cabin's click polygon */}
+        <polygon points={entryPoints} fill="#22d3ee" fillOpacity="0.08" stroke="#22d3ee" strokeWidth="1.5" strokeDasharray="6,3" opacity="0.9" />
 
         {/* CABIN-LOCAL: registered object boxes (window + hitbox + hover
             box), the sign's text box dotted inside its own. */}
@@ -227,9 +261,13 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
             </>
           ) : (
             <div className="text-yellow-300/80">
-              WORLD/STAGE -- cabin {CABIN_WIDTH}×{CABIN_HEIGHT}, closed scale {layout.cabinScale.closedScale} / open scale {layout.cabinScale.openScale}, bottom-anchored
+              WORLD/STAGE -- cabin {CABIN_WIDTH}×{CABIN_HEIGHT}, closed scale {layout.cabinScale.closedScale} / open scale{" "}
+              {layout.cabinScale.openScale.toFixed(3)} (fitted to this screen), bottom-anchored, open +{Math.round(layout.openOffsetY)}px down
             </div>
           )}
+          <div className="text-slate-200/90">
+            SMOKE FADE (world space, white lines) -- solid at y {smoke.opaqueY} and below, gone by y {smoke.goneY}; its layer reaches {smokeCorridor}px above the stage (red, seen only mid-travel); smokeFade in src/lib/layout.ts
+          </div>
           {layout.mode === "portrait" && (
             <>
               <div className="text-cyan-300/80">
@@ -240,14 +278,14 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
               </div>
             </>
           )}
-          <div className="text-fuchsia-400/80">
-            CABIN-LOCAL -- picture frame (magenta): the whole frame (hover area) and its left / right click halves (LinkedIn / About Me)
+          <div className="text-cyan-300/90">
+            CABIN-LOCAL -- cabin entry (cyan polygon, on the CLOSED cabin): the only part of it that opens the door; CABIN_ENTRY_REGION in src/lib/layout.ts
           </div>
           <div className="text-yellow-300/90">
             CABIN-LOCAL -- exclamation hints (yellow, dashed): the door hint sits on the CLOSED cabin, the gramophone hint on the open one; DOOR_HINT / GRAMOPHONE_HINT in src/lib/layout.ts
           </div>
           <div className="text-orange-300/90">
-            CABIN-LOCAL -- registered objects (orange, dashed): window + hitbox + hover box, cabin px, CABIN_OBJECTS in src/lib/layout.ts; sign text box dotted; each overlay&apos;s full canvas shows faintly so art outside its box is visible
+            CABIN-LOCAL -- registered objects (orange, dashed): window + hitbox + hover box, cabin px, CABIN_OBJECTS in src/lib/layout.ts; sign text box dotted; each overlay&apos;s full canvas shows faintly so art outside its box is visible; &quot;unclipped&quot; = the box is only the hitbox (the lamp)
           </div>
           <div className="text-blue-300/80">VIEWPORT UI -- Experience/Projects arrows are fixed to the real viewport, not shown on this stage SVG</div>
           {environment && (
@@ -257,6 +295,7 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
               <div className="text-white/70">Bird spawning: {environment.birds}</div>
               <div className="text-white/70">Airplane spawning: {environment.airplane}</div>
               <div className="text-white/70">Opening parallax: {environment.parallax}</div>
+              <AudioStatus interior={environment.interiorAmbience} />
             </>
           )}
         </div>
@@ -275,21 +314,12 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
         >
           SHELL {CABIN_WIDTH}×{CABIN_HEIGHT}
         </div>
-        {Object.entries(CABIN_ART_HOTSPOTS).map(([key, val]) => {
-          const rect = toStage(val);
-          // The halves are inside the whole frame: the right one's label
-          // sits below its box so the three don't overprint.
-          const below = key === "pictureFrameRight" ? rect.height : 0;
-          return (
-            <div
-              key={key}
-              className="absolute text-fuchsia-400/60"
-              style={{ left: `${(rect.x / stageW) * 100}%`, top: `${((rect.y + below) / stageH) * 100}%`, fontSize: "8px" }}
-            >
-              {key} {val.x},{val.y} {val.width}×{val.height}
-            </div>
-          );
-        })}
+        <div
+          className="absolute whitespace-nowrap rounded bg-black/70 px-1 text-[11px] font-semibold leading-tight text-cyan-300"
+          style={{ left: `${(entryLabel.x / stageW) * 100}%`, top: `${(entryLabel.y / stageH) * 100}%` }}
+        >
+          Cabin entry (closed) · {CABIN_ENTRY_REGION.length}-point polygon
+        </div>
         {hints.map(({ key, hint, rect }) => (
           <div
             key={key}
@@ -299,14 +329,21 @@ export function LayoutGuide({ mode, environment }: LayoutGuideProps) {
             {key} {hint.x},{hint.y} ×{hint.scale}
           </div>
         ))}
-        {/* Each object's name, box (cabin px) and hover growth, just above its box. */}
+        {/* Each object's name, box (cabin px) and hover growth, just above
+            its box -- About's below, so it doesn't overprint LinkedIn's. */}
         {objects.map(({ key, name, bounds, rect }) => (
           <div
             key={key}
-            className="absolute -translate-y-full whitespace-nowrap rounded bg-black/70 px-1 text-[11px] font-semibold leading-tight text-orange-300"
-            style={{ left: `${(rect.x / stageW) * 100}%`, top: `${(rect.y / stageH) * 100}%` }}
+            className={`absolute whitespace-nowrap rounded bg-black/70 px-1 text-[11px] font-semibold leading-tight text-orange-300 ${
+              key === "about" ? "" : "-translate-y-full"
+            }`}
+            style={{
+              left: `${(rect.x / stageW) * 100}%`,
+              top: `${((key === "about" ? rect.y + rect.height : rect.y) / stageH) * 100}%`,
+            }}
           >
             {name} {bounds.x},{bounds.y} {bounds.width}×{bounds.height} · ×{bounds.hoverScale} from {bounds.transformOrigin}
+            {bounds.clip === false && " · unclipped"}
           </div>
         ))}
       </div>

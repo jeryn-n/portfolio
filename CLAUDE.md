@@ -57,7 +57,11 @@ bridge during travel (`getSkyBridgeHeight`; zero on portrait). Experience
 entries are placed by slug and sized directly (no transforms). Each terrain layer is its own
 parallax depth (sky ×1 … ground ×1.11) zooming, like the cabin, from one
 focus point near the cabin's base (`getZoomFocusY`) as the cabin opens. Snow falls in front of the closed
-cabin and is masked out over the open cabin's box (`getOpenCabinBox`).
+cabin. As it opens, the snow over the open cabin's box (`getOpenCabinBox`)
+hands over to a second copy of the very same flakes behind the cabin
+(`useSnowFlakes` shared by both layers, complementary masks that always add
+up to one snowfall), so it keeps falling past the windows and around the
+roof but never on the interior.
 
 In both modes the cabin grows from its **base** (bottom-center
 transform-origin), so the opening zoom expands it upward and outward; on
@@ -68,10 +72,18 @@ only the art group inside it resizes, from `cabinArt.closedArtScale` to
 exactly 100% of the shell when open. The exterior, front wall and interior
 all live in that one art group so they stay registered through the
 cross-fade. The click target and door hint live inside it too, so they
-track the visible closed artwork rather than the larger shell. Portrait
+track the visible closed artwork rather than the larger shell; the click
+target is a polygon a little inside the building's silhouette
+(`CABIN_ENTRY_REGION`, a clip-path on the button, with an SVG focus ring),
+so the transparent canvas around the cabin doesn't open it. Portrait
 keeps the older, simpler model where the whole shell+art group scales
-together as one explicit closed/open pair (`cabinScale.closedScale` /
-`cabinScale.openScale`). On
+together from `cabinScale.closedScale` to an open scale **fitted to the
+phone** (`fitSceneLayout` / `PORTRAIT_OPEN_FIT`, from the visible stage
+rect `SceneStage` exposes via `useStageViewport`): the cabin's body spans
+the visible width (eaves past the edges), never below V1's 1.43, and on
+short screens it settles `openOffsetY` lower so the roof clears the top
+arrow. `CabinScene`'s `cabinFrame` is the one place that transform is
+built. On
 desktop the title card and house sign are positioned independently of the
 cabin (stage-relative); on portrait they instead derive their Y from the
 cabin's own Y plus a fixed offset (`titleCardOffsetFromCabinY` /
@@ -100,28 +112,70 @@ above `SceneStage` so both the stage content and the viewport UI can read it.
 The cabin itself has its own **cabin-local 640×720 coordinate surface**
 (`CABIN_WIDTH`/`CABIN_HEIGHT`, also in `src/lib/layout.ts`). The interior is
 a base drawing (`cabin-interior.png`) plus **registered overlays** — fire glow,
-fire, gramophone, sign, icons, banner, cat — each a full 640×720 transparent canvas on
+fire, lamp (on/off), gramophone, sign, LinkedIn and About icons, banner, cat — each a full 640×720 transparent canvas on
 that same surface, so every file is drawn at inset 0 with no per-file
 offset. Objects are handled through one box each in `CABIN_OBJECTS`
 (`RegisteredCabinObject`): the box is the window the overlay shows through
-(art outside it is clipped), the hitbox, and what scales on hover/focus
-about its `transformOrigin` — never the whole canvas. The sign's HTML
-name/title live inside its window so they scale with it. The sign (About),
-banner (Education), gramophone (for now it only dismisses its exclamation --
-no audio) and cat (a click/tap makes it hop once, `bounce`) are buttons; the
+(art outside it is clipped, unless the box says `clip: false` -- the lamp,
+whose pole and glow reach past its clickable shade), the hitbox, and what scales on hover/focus
+about its `transformOrigin` — never the whole canvas. Objects that must
+not move (the lamp, the two picture-frame icons) have `hoverScale: 1` and
+brighten instead (`hoverBrightness`); the icons don't give on a press
+either (`press: false`). The sign's HTML
+name/title live inside its window so they scale with it. The lamp (cuts
+between `lamp-on.png` / `lamp-off.png`, both always mounted; the cut waits
+until the new art has decoded, so there's never a frame without a lamp), gramophone (music, see
+Sound), sign (About), About icon, banner (Education) and cat (a click/tap
+makes it hop once, `bounce`, and meows) are buttons; the LinkedIn icon is a
+link. Each picture-frame icon falls back to its half of the old combined
+`icons.png` if its own file is missing (`fallbackAsset`). The
 fire (an animated WebP the browser loops) and `fire-glow.png` (pulsed by CSS
 keyframes of two different, random-valued lengths (opacity 90-100%, scale 95-120%); renders nothing if the file is
-absent) are only drawn. `icons.png` draws both picture-frame icons as one
-object (`PictureFrame`): the frame (`CABIN_ART_HOTSPOTS`) is split into
-two invisible click halves (the art itself has no hover effect) -- left LinkedIn, right
-About. The two exclamation hints (`DOOR_HINT`, `GRAMOPHONE_HINT`) are
-one-line positions in `layout.ts`. Chimney smoke lives in the cabin's art
-group (so it zooms with the cabin) and keeps rising while the cabin is open. All of it, and the door-hint position, is
+absent) are only drawn. The two exclamation hints (`DOOR_HINT`, `GRAMOPHONE_HINT`) are
+one-line positions in `layout.ts`. Chimney smoke rides the cabin's own
+transform (`cabinFrame`, so it zooms with the cabin and keeps rising while
+it's open) but in a separate layer behind the cabin whose mask is world
+space: per mode, `smokeFade` fades it out between `opaqueY` and `goneY`
+(stage px of the cabin scene; desktop gone just short of Experience, up in
+the sky bridge), and `WorldSceneController`'s foreground layer reaches that
+far above the stage (`getSmokeCorridorHeight`), so travel never shows the
+smoke hitting a clipped edge. All of it, and the door-hint position, is
 positioned once against that surface and is identical in both modes — only
 the cabin group's own stage position and scale differ per mode, so interior
 geometry never needs separate mobile coordinates. `?debug=layout` outlines
-and labels the object boxes and faintly shows each overlay's whole canvas.
+and labels the object boxes, the entry polygon (on the closed cabin) and the
+smoke's fade lines, and faintly shows each overlay's whole canvas.
 The old separate prop sprites are switched off (`SPRITE_PROPS_ENABLED`).
+
+## Sound
+
+`AudioProvider` (above the route tree) holds two separate switches --
+`masterSoundEnabled` (the bottom-right `SoundButton`) and `musicEnabled`
+(the gramophone) -- both off on every fresh visit, plus a master volume
+(50% on a fresh visit; its own context, `useMasterVolume`, so a slider drag
+re-renders only the control). Nothing makes a sound until the visitor turns
+it on with the button, its slider or the gramophone, and that gesture
+creates the Web Audio engine (`soundEngine.ts`), so playback always starts in
+one. Master on: world ambience (+ the fireplace while the cabin interior is
+the scene, with the ambience muffled to `AUDIO_SCENE_LEVEL.outdoorInCabin`),
+one-shots allowed, music only if `musicEnabled`. Master off (button, or
+slider at 0): everything stops at once; `musicEnabled` and the last nonzero
+volume are kept. The gramophone with master off turns everything on, music
+from the top; with master on it toggles the music only. Every gain is base
+mix (`AUDIO_VOLUME`) x scene level x master volume, never folded together.
+Cat meows overlap (up to `CAT_MEOW_MAX_OVERLAP`). Routes pick an
+`AmbientMode`: detail pages drop the ambience but keep the music; `/video`
+(`VIDEO_PATH`) is isolated by pathname -- nothing of the site's plays there
+and the sound control is hidden -- and everything resumes as it was on
+leaving. Every path, volume, fade, scene level and the cat-meow weights live
+in `src/data/audio.ts`; a missing file is fetched once and stays silent. The
+volume slider opens left of the button on hover / keyboard focus (not on
+touch); the whole control slides left while the WIP notice
+(`DevelopmentNotice`, reporting `devNoticeShowing`) covers its corner.
+
+Custom cursor sprites (`CURSOR_SPRITES` in `src/data/assets.ts`) are used
+only once their files exist -- the root layout checks `public/` and sets
+`--cursor-pointer` / `--cursor-hand`; anything clickable uses `cursor-hand`.
 
 ## Art & content
 

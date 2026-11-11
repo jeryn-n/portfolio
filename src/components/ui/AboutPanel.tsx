@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { motion } from "motion/react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ASSETS } from "@/data/assets";
 import { SITE } from "@/data/site";
 import { Panel } from "./Panel";
@@ -58,7 +59,7 @@ function linkSchool(text: string, onOpen: () => void): ReactNode[] {
             key={index}
             type="button"
             onClick={onOpen}
-            className={`inline cursor-pointer border-0 bg-transparent p-0 text-inherit underline underline-offset-2 hover:text-ink ${FOCUS_CLASS}`}
+            className={`inline cursor-hand border-0 bg-transparent p-0 text-inherit underline underline-offset-2 hover:text-ink ${FOCUS_CLASS}`}
           >
             {SCHOOL_NAME}
           </button>,
@@ -83,14 +84,99 @@ const LINKS: AboutLink[] = [
   { label: "Resume", href: SITE.resumeUrl, icon: <ResumeIcon />, external: true },
 ];
 
+// How long the Copy button reads "Copied".
+const COPIED_MS = 1600;
+
+// The Clipboard API where it's allowed; where it isn't (an insecure page, an
+// older browser), the old execCommand route through a throwaway text field.
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Refused -- try the fallback.
+  }
+  try {
+    const field = document.createElement("textarea");
+    field.value = text;
+    field.setAttribute("readonly", "");
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.appendChild(field);
+    field.select();
+    const copied = document.execCommand("copy");
+    field.remove();
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+// The address, spelled out, with a Copy button: the fallback for anyone
+// whose Email click went nowhere because no mail app is set up. If copying
+// fails outright, the address is selected instead, ready for Ctrl/Cmd+C.
+function EmailCopy() {
+  const [copied, setCopied] = useState(false);
+  const addressRef = useRef<HTMLSpanElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  async function handleCopy() {
+    const ok = await copyText(SITE.email);
+    // The execCommand route moves focus to its text field and away again.
+    buttonRef.current?.focus();
+    if (!ok) {
+      const address = addressRef.current;
+      if (address) window.getSelection()?.selectAllChildren(address);
+      return;
+    }
+    setCopied(true);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), COPIED_MS);
+  }
+
+  return (
+    <motion.div
+      className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1"
+      initial={{ opacity: 0, y: -4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
+    >
+      <span ref={addressRef} className="select-all text-xs font-semibold text-ink-soft">
+        {SITE.email}
+      </span>
+      <button
+        ref={buttonRef}
+        type="button"
+        aria-label={`Copy ${SITE.email}`}
+        onClick={handleCopy}
+        className={`min-h-8 min-w-[4.75rem] border-2 border-ink-soft px-2 text-[11px] font-bold uppercase tracking-wide text-ink transition-colors hover:bg-ink-soft hover:text-paper active:bg-ink active:text-paper ${FOCUS_CLASS}`}
+      >
+        {copied ? "Copied" : "Copy"}
+      </button>
+      <span className="sr-only" aria-live="polite">
+        {copied ? "Email address copied" : ""}
+      </span>
+    </motion.div>
+  );
+}
+
 // One set of markup, arranged two ways with grid areas:
 //   mobile  -- the photo top-left with the links stacked beside it, top-right
 //              (four 44px buttons span the photo's height), then the heading
 //              and copy centred underneath.
 //   desktop -- the photo beside the copy, with the links in one row along
 //              the bottom.
+// Clicking Email still opens the visitor's mail app, and also reveals the
+// address with a Copy button under the links (EmailCopy), which then stays
+// for the rest of the visit.
 export function AboutPanel() {
   const { activePanel, closePanel, openPanel } = useSiteUI();
+  const [emailCopyShown, setEmailCopyShown] = useState(false);
 
   return (
     <Panel open={activePanel === "about"} onClose={closePanel} title="About" size="wide">
@@ -110,14 +196,17 @@ export function AboutPanel() {
           </div>
         </div>
 
-        <nav aria-label="Links" className="[grid-area:links] md:border-t-2 md:border-ink-soft/15 md:pt-5">
-          <ul className="flex h-full list-none flex-col justify-between gap-2 p-0 md:grid md:grid-cols-4 md:gap-3">
+        <nav aria-label="Links" className="flex flex-col [grid-area:links] md:border-t-2 md:border-ink-soft/15 md:pt-5">
+          <ul className="flex flex-1 list-none flex-col justify-between gap-2 p-0 md:grid md:grid-cols-4 md:gap-3">
             {LINKS.map((link) => (
               <li key={link.label}>
                 <a
                   href={link.href}
                   aria-label={link.ariaLabel}
                   title={link.external ? undefined : SITE.email}
+                  // The mailto: link goes ahead as normal; this only adds the
+                  // Copy fallback beside it.
+                  onClick={link.external ? undefined : () => setEmailCopyShown(true)}
                   {...(link.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className={`flex min-h-11 items-center justify-center gap-2 border-2 border-ink-soft px-2 py-2 text-xs font-bold uppercase tracking-wide text-ink transition-colors hover:bg-ink-soft hover:text-paper active:bg-ink active:text-paper sm:px-3 ${FOCUS_CLASS}`}
                 >
@@ -128,6 +217,7 @@ export function AboutPanel() {
               </li>
             ))}
           </ul>
+          {emailCopyShown && <EmailCopy />}
         </nav>
       </div>
     </Panel>

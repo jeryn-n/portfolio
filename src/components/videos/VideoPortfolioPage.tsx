@@ -115,9 +115,11 @@ export function VideoPortfolioPage({
   const { goTo } = useWorldScene();
   const [activeSection, setActiveSection] = useState(sections[0]?.slug);
 
-  // No environmental ambience here, as on the detail pages.
+  // No environmental ambience here, as on the detail pages -- and no
+  // gramophone either: this page plays its own media. The gramophone keeps
+  // its on/off and picks up where it paused back in the world.
   useEffect(() => {
-    setAmbientMode("none");
+    setAmbientMode("silent");
   }, [setAmbientMode]);
 
   // One video at a time, local or YouTube.

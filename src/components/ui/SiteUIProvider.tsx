@@ -29,6 +29,12 @@ interface SiteUIContextValue {
   // For future snowfall/scene-navigation code to detect a blocking modal.
   // The email popover intentionally does NOT count as blocking.
   isBlockingOverlayOpen: boolean;
+
+  // Whether the "still under development" notice is on screen right now.
+  // DevelopmentNotice owns when it shows and reports it here, so the sound
+  // button can step out of its way.
+  devNoticeShowing: boolean;
+  setDevNoticeShowing: (showing: boolean) => void;
 }
 
 const SiteUICtx = createContext<SiteUIContextValue | null>(null);
@@ -42,6 +48,7 @@ export function SiteUIProvider({ children }: { children: ReactNode }) {
   const [returnPanel, setReturnPanel] = useState<PanelId | null>(null);
   const [emailPopoverOpen, setEmailPopoverOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [devNoticeShowing, setDevNoticeShowing] = useState(false);
 
   const markCabinEntered = useCallback(() => setHasEnteredCabin(true), []);
 
@@ -75,6 +82,8 @@ export function SiteUIProvider({ children }: { children: ReactNode }) {
     toggleMenu,
     closeMenu,
     isBlockingOverlayOpen: activePanel !== null,
+    devNoticeShowing,
+    setDevNoticeShowing,
   };
 
   return <SiteUICtx.Provider value={value}>{children}</SiteUICtx.Provider>;

@@ -104,11 +104,44 @@ export const ASSETS = {
     designWidth: 640,
     designHeight: 720,
   },
-  // Both picture-frame icons (LinkedIn, About) on one canvas, grown together.
+  // The picture frame's two icons, one overlay each, so each grows and clicks
+  // on its own: LinkedIn on the left, About Me on the right.
+  cabinLinkedIn: {
+    id: "cabinLinkedIn",
+    src: "/art/cabin/linkedin.png",
+    label: "LinkedIn Icon",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  cabinAboutIcon: {
+    id: "cabinAboutIcon",
+    src: "/art/cabin/about-icon.png",
+    label: "About Me Icon",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  // The old combined drawing of both icons. Only requested if one of the two
+  // above is missing, and then drawn through that icon's own window instead.
   cabinIcons: {
     id: "cabinIcons",
     src: "/art/cabin/icons.png",
     label: "Picture Frame Icons",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  // The floor lamp by the left window, lit and unlit -- identical framing, so
+  // a click just swaps which one is drawn.
+  cabinLampOn: {
+    id: "cabinLampOn",
+    src: "/art/cabin/lamp-on.png",
+    label: "Lamp (On)",
+    designWidth: 640,
+    designHeight: 720,
+  },
+  cabinLampOff: {
+    id: "cabinLampOff",
+    src: "/art/cabin/lamp-off.png",
+    label: "Lamp (Off)",
     designWidth: 640,
     designHeight: 720,
   },
@@ -210,6 +243,21 @@ export const ASSETS = {
     label: "Exclamation Hint",
     designWidth: 48,
     designHeight: 64,
+  },
+  // The master sound button: 12x12 pixel art exported at 5x.
+  uiSoundOn: {
+    id: "uiSoundOn",
+    src: "/art/ui/sound-on.png",
+    label: "Sound On",
+    designWidth: 60,
+    designHeight: 60,
+  },
+  uiSoundOff: {
+    id: "uiSoundOff",
+    src: "/art/ui/sound-off.png",
+    label: "Sound Off",
+    designWidth: 60,
+    designHeight: 60,
   },
 
   // Ambient clouds, by category: one very large rear cloud, two medium
@@ -388,3 +436,14 @@ export const PROJECTS_SECONDARY_ASSETS: readonly AssetId[] = ["projectsBackgroun
 export function assetSources(ids: readonly AssetId[]): string[] {
   return ids.map((id) => ASSETS[id].src);
 }
+
+// The site's own mouse cursors: the normal pointer, and the hand shown over
+// anything clickable. Each is used only once its file exists -- the root
+// layout checks public/ while it renders, like /video does for its media, so
+// a missing sprite is never requested -- and until then the browser's own
+// arrow and hand stand in. `hotspot` is the pixel (in the file) that does the
+// pointing. Keep the files at most 32x32 so every browser accepts them.
+export const CURSOR_SPRITES = {
+  pointer: { src: "/art/ui/cursor.png", hotspot: { x: 0, y: 0 }, fallback: "auto" },
+  hand: { src: "/art/ui/cursor-hand.png", hotspot: { x: 6, y: 0 }, fallback: "pointer" },
+} as const;

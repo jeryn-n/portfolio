@@ -10,15 +10,19 @@ import { useAudio } from "@/components/audio/AudioProvider";
 import { useSiteUI } from "@/components/ui/SiteUIProvider";
 import { ASSETS, type ArtAssetDef } from "@/data/assets";
 import {
+  CABIN_ENTRY_REGION,
   CABIN_HEIGHT,
   CABIN_WIDTH,
   CHIMNEY_SMOKE_ORIGIN,
   DOOR_HINT,
+  fitSceneLayout,
   getOpenCabinBox,
   getSceneLayout,
+  getSmokeCorridorHeight,
   getZoomFocusY,
   type CloudKind,
   type ExteriorCrop,
+  type SmokeFade,
 } from "@/lib/layout";
 import { createCloudField, type CloudSpec } from "./cloudField";
 import {
@@ -37,8 +41,10 @@ import { LanternGlow, RegisteredCabinArt } from "./RegisteredCabinObject";
 import { ChimneySmoke } from "./ChimneySmoke";
 import { useCompositionMode } from "./CompositionModeContext";
 import { LayoutGuide } from "./LayoutGuide";
-import { SnowLayer } from "./SnowLayer";
+import { useStageViewport } from "./SceneStage";
+import { flakesCrossing, SnowLayer, useSnowFlakes } from "./SnowLayer";
 import { useEnvironmentMotion } from "./useEnvironmentMotion";
+import { useWorldScene } from "./WorldSceneContext";
 
 // Clouds keep drifting once the cabin is open, but noticeably slower -- the
 // outdoors is still alive while attention has moved indoors.
@@ -68,10 +74,13 @@ const PARALLAX_VARIANTS: Record<ParallaxDepth, Variants> = {
   ground: parallaxVariants(PARALLAX_ZOOM.ground),
 };
 
-// Snow falls in front of the cabin. Once it opens, the snow fades out over
-// the open cabin's box (so the interior is never snowed on) and dims a
-// little elsewhere. The cutout
-// fades in with the front wall.
+// Snow falls in front of the closed cabin. Once it opens, the snow over the
+// open cabin's box moves BEHIND the cabin: the front copy is masked out there
+// (snowCutoutMask) while a second copy of the very same flakes, behind the
+// cabin, is masked in (snowBehindMasks) -- so it keeps falling past the
+// windows and around the roof but never lands on the interior, and the two
+// masks always add up to exactly one snowfall. The handover fades in with
+// the front wall, and all of the snow dims a little while the cabin is open.
 const SNOW_OPEN_OPACITY = 0.6;
 const SNOW_CUTOUT_FEATHER = 48;
 
@@ -95,6 +104,36 @@ function snowCutoutMask(box: { x: number; y: number; width: number; height: numb
     `linear-gradient(${direction}, #000 ${start - SNOW_CUTOUT_FEATHER}px, ${inside} ${start}px, ${inside} ${end}px, #000 ${end + SNOW_CUTOUT_FEATHER}px)`;
   return `${band("to right", box.x, box.x + box.width)}, ${band("to bottom", box.y, box.y + box.height)}`;
 }
+
+// The exact complement of snowCutoutMask, for the copy of the snow behind
+// the cabin: inside the box, as strong as the front copy is masked out there,
+// feathering to nothing across the same band. The front mask unions its two
+// bands (a + b - ab), so its complement is their inverses multiplied,
+// (1 - a)(1 - b): one band each on two nested layers, since nested masks
+// multiply.
+function snowBehindMasks(box: { x: number; y: number; width: number; height: number }): [string, string] {
+  const inside = "rgba(0, 0, 0, var(--snow-cutout))";
+  const band = (direction: string, start: number, end: number) =>
+    `linear-gradient(${direction}, transparent ${start - SNOW_CUTOUT_FEATHER}px, ${inside} ${start}px, ${inside} ${end}px, transparent ${end + SNOW_CUTOUT_FEATHER}px)`;
+  return [band("to right", box.x, box.x + box.width), band("to bottom", box.y, box.y + box.height)];
+}
+
+// The smoke layer's mask: clear down to goneY, then easing (smoothstep) to
+// solid at opaqueY. Stage px, shifted into the layer, which starts
+// `corridor` px above the stage.
+function smokeFadeMask({ opaqueY, goneY }: SmokeFade, corridor: number): string {
+  const stops = [0, 0.2, 0.4, 0.6, 0.8, 1].map((t) => {
+    const alpha = t * t * (3 - 2 * t);
+    return `rgb(0 0 0 / ${alpha.toFixed(3)}) ${goneY + (opaqueY - goneY) * t + corridor}px`;
+  });
+  return `linear-gradient(to bottom, ${stops.join(", ")})`;
+}
+
+// The closed cabin's click target, as a clip-path and as SVG points.
+const ENTRY_CLIP_PATH = `polygon(${CABIN_ENTRY_REGION.map(([x, y]) => `${x}px ${y}px`).join(", ")})`;
+const ENTRY_POINTS = CABIN_ENTRY_REGION.map(([x, y]) => `${x},${y}`).join(" ");
+
+const INSTANT = { duration: 0 };
 
 const signVariants: Variants = {
   closed: { opacity: 1 },
@@ -188,8 +227,13 @@ interface CabinSceneProps {
 export function CabinScene({ foregroundTarget }: CabinSceneProps) {
   const { cabinState, setCabinState } = useCabinState();
   const mode = useCompositionMode();
-  const layout = getSceneLayout(mode);
-  const { setAmbientMode } = useAudio();
+  const modeLayout = getSceneLayout(mode);
+  // Fitted to the screen: on a phone, the open cabin's size depends on how
+  // much of the stage the screen shows (see PORTRAIT_OPEN_FIT).
+  const stageViewport = useStageViewport();
+  const layout = useMemo(() => fitSceneLayout(modeLayout, stageViewport), [modeLayout, stageViewport]);
+  const { scene } = useWorldScene();
+  const { setAmbientMode, playSfx } = useAudio();
   const { markCabinEntered } = useSiteUI();
   const { reducedMotion, frozen } = useEnvironmentMotion();
 
@@ -216,17 +260,23 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     return () => clearTimeout(timer);
   }, [cabinState, setCabinState, revealDuration]);
 
-  // Ambient context: exterior while closed/opening, interior once fully
-  // open (switching at the end of the reveal is a sensible, simple choice).
+  // Ambient context: from the moment the interior starts to show until the
+  // visitor travels off to another scene (and again on the way back), the
+  // fireplace plays and the world's ambience is muffled behind it.
+  const interiorAmbience = cabinState !== "closed" && scene === "cabin";
   useEffect(() => {
-    setAmbientMode(cabinState === "open" ? "interior" : "exterior");
-  }, [cabinState, setAmbientMode]);
+    setAmbientMode(interiorAmbience ? "interior" : "exterior");
+  }, [interiorAmbience, setAmbientMode]);
 
   useEffect(() => {
     if (cabinState === "open") markCabinEntered();
   }, [cabinState, markCabinEntered]);
 
+  // The door creaks only here, on the click that opens the closed cabin --
+  // never for a cabin that loads or returns already open.
   function handleEnter() {
+    if (cabinState !== "closed") return;
+    playSfx("door");
     setCabinState((prev) => (prev === "closed" ? "opening" : prev));
   }
 
@@ -244,10 +294,11 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     layout.mode === "desktop"
       ? layout.houseSign
       : { x: layout.houseSignX, y: layout.cabinY + layout.houseSignOffsetFromCabinY };
-  // Drawn once per composition mode. There is no hydration risk in the
-  // randomness: like SnowLayer, this scene only ever first renders on the
-  // client, after SceneStage has measured the viewport.
-  const clouds = useMemo(() => createCloudField(layout), [layout]);
+  // Drawn once per composition mode (not per fit, so a resize never reshuffles
+  // the sky). There is no hydration risk in the randomness: like SnowLayer,
+  // this scene only ever first renders on the client, after SceneStage has
+  // measured the viewport.
+  const clouds = useMemo(() => createCloudField(modeLayout), [modeLayout]);
 
   // Closed: full speed. Opening/open: slowed. Reduced motion: held still.
   const cloudSpeedFactor = reducedMotion ? 0 : cabinState === "closed" ? 1 : OPEN_CLOUD_SPEED_FACTOR;
@@ -299,23 +350,34 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     );
   }
 
-  const snowMask = snowCutoutMask(getOpenCabinBox(layout));
+  const openBox = getOpenCabinBox(layout);
+  const snowMask = snowCutoutMask(openBox);
+  const [snowBehindX, snowBehindY] = snowBehindMasks(openBox);
+  const flakes = useSnowFlakes(!reducedMotion);
+  // The copy behind the cabin only needs the flakes that ever cross the open
+  // box's columns.
+  const behindLeft = openBox.x - SNOW_CUTOUT_FEATHER;
+  const behindRight = openBox.x + openBox.width + SNOW_CUTOUT_FEATHER;
+  const behindFlakes = useMemo(
+    () => flakesCrossing(flakes, layout.stageWidth, behindLeft, behindRight),
+    [flakes, layout.stageWidth, behindLeft, behindRight],
+  );
 
   // Portrait keeps its prior architecture: the whole 640x720 group (shell +
-  // art together) scales from an explicit closed end state to an explicit
-  // open end state, from its bottom-center so the base stays put.
-  const cabinGroupVariants: Variants | undefined =
+  // art together) scales from its closed scale to its open one, from its
+  // bottom-center so the base stays put -- apart from openOffsetY, which
+  // settles the open cabin lower on short screens. The open values are
+  // fitted to the screen, so they're animated as values rather than named
+  // variants: a resize that refits the open cabin then applies at once.
+  const portraitOpen = cabinState !== "closed";
+  const portraitTarget =
     layout.mode === "portrait"
       ? {
-          closed: { scale: layout.cabinScale.closedScale, top: layout.cabinY },
-          opening: {
-            scale: layout.cabinScale.openScale,
-            top: layout.cabinY,
-            transition: { duration: REVEAL_DURATION, ease: REVEAL_EASE },
-          },
-          open: { scale: layout.cabinScale.openScale, top: layout.cabinY },
+          scale: portraitOpen ? layout.cabinScale.openScale : layout.cabinScale.closedScale,
+          y: portraitOpen ? layout.openOffsetY : 0,
         }
       : undefined;
+  const portraitTransition = cabinState === "opening" ? { duration: REVEAL_DURATION, ease: REVEAL_EASE } : INSTANT;
 
   // Desktop: the 640x720 logical shell is a stable reference box (scaled
   // once by shellScale, never animated between states). Only the art group
@@ -363,15 +425,102 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     </>
   );
 
-  // The first thing in the cabin's art group, behind all of its art, so the
-  // puffs come out from behind the chimney cap (the interior's has one too).
-  // It belongs to the cabin, not the world behind it: it grows and moves with
-  // the art group through the opening zoom and keeps rising once the cabin is
-  // open. None at all for reduced motion.
+  // The cabin's own transform -- its stage position and scale, and the
+  // opening zoom -- around `children`, which are in cabin-local px. The cabin
+  // and its chimney smoke both render through this, so the smoke stays on the
+  // chimney through every frame of the zoom.
+  //
+  // Desktop: the 640x720 logical shell is a stable reference box (scaled
+  // once by shellScale, never animated between states). Only the art group
+  // inside it resizes, from closedArtScale to exactly 100% of the shell,
+  // from its bottom-center, so the base stays put and the growth goes up and
+  // out (see artGroupScaleVariants). Portrait: the whole group scales, see
+  // portraitTarget.
+  function cabinFrame(children: ReactNode) {
+    if (layout.mode === "portrait") {
+      return (
+        <motion.div
+          className="absolute"
+          style={{ left: layout.cabinX, top: layout.cabinY, width: CABIN_WIDTH, height: CABIN_HEIGHT, transformOrigin: "50% 100%" }}
+          initial={false}
+          animate={portraitTarget}
+          transition={portraitTransition}
+        >
+          {children}
+        </motion.div>
+      );
+    }
+    return (
+      <div
+        className="absolute"
+        style={{
+          left: layout.cabinX,
+          top: layout.cabinY,
+          width: CABIN_WIDTH,
+          height: CABIN_HEIGHT,
+          transform: `scale(${layout.cabinArt.shellScale})`,
+          transformOrigin: "50% 0%",
+        }}
+      >
+        <motion.div
+          className="absolute inset-0"
+          style={{ transformOrigin: "50% 100%" }}
+          initial={initialCabinState}
+          animate={cabinState}
+          variants={artGroupScaleVariants as Variants}
+        >
+          {children}
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Chimney smoke, in its own layer behind the whole cabin, so the puffs
+  // come out from behind the chimney cap (the interior's has one too). It
+  // belongs to the cabin -- it rides cabinFrame, growing with the opening
+  // zoom, and keeps rising once the cabin is open -- but the layer around it
+  // is world space: the cabin scene's stage, reaching up past the stage's
+  // top edge (getSmokeCorridorHeight), masked so the column thins out to
+  // nothing by layout.smokeFade.goneY. So the layer's clipped top only ever
+  // cuts through smoke that's already gone, and travelling to Experience
+  // shows the smoke dissolving into the sky, never hitting a ceiling. None at
+  // all for reduced motion.
+  const smokeCorridor = getSmokeCorridorHeight(layout);
+  const smokeMask = smokeFadeMask(layout.smokeFade, smokeCorridor);
   const chimneySmoke = !reducedMotion && (
-    <div className="pointer-events-none absolute inset-0">
-      <ChimneySmoke x={CHIMNEY_SMOKE_ORIGIN.x} y={CHIMNEY_SMOKE_ORIGIN.y} frozen={frozen} />
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute inset-x-0"
+      style={{ top: -smokeCorridor, height: layout.stageHeight + smokeCorridor, maskImage: smokeMask, WebkitMaskImage: smokeMask }}
+    >
+      <div className="absolute inset-x-0" style={{ top: smokeCorridor, height: layout.stageHeight }}>
+        {cabinFrame(<ChimneySmoke x={CHIMNEY_SMOKE_ORIGIN.x} y={CHIMNEY_SMOKE_ORIGIN.y} frozen={frozen} />)}
+      </div>
     </div>
+  );
+
+  // The closed cabin's click target: the building itself (CABIN_ENTRY_REGION),
+  // not its whole transparent canvas -- a clip-path clips hit-testing too.
+  // The clip would also cut off an outline, so keyboard focus is shown by the
+  // polygon traced in an SVG beside it instead.
+  const entryButton = (
+    <>
+      <button
+        type="button"
+        aria-label="Enter the cabin"
+        onClick={handleEnter}
+        disabled={cabinState !== "closed"}
+        className="peer absolute inset-0 cursor-hand border-0 bg-transparent focus-visible:outline-none disabled:pointer-events-none"
+        style={{ clipPath: ENTRY_CLIP_PATH }}
+      />
+      <svg
+        aria-hidden="true"
+        viewBox={`0 0 ${CABIN_WIDTH} ${CABIN_HEIGHT}`}
+        className="pointer-events-none absolute inset-0 hidden h-full w-full overflow-visible peer-focus-visible:block"
+      >
+        <polygon points={ENTRY_POINTS} fill="none" stroke="var(--paper)" strokeWidth={3} strokeLinejoin="round" />
+      </svg>
+    </>
   );
 
   // The closed exterior: its art, the lantern's pulsing glow, then the
@@ -385,9 +534,29 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
     </>
   );
 
+  // The snow behind the open cabin (see snowVariants). Hidden outright while
+  // the cabin is closed -- its mask is empty then anyway -- but never
+  // unmounted, so its flakes stay in step with the front copy's.
+  const snowBehind = (
+    <motion.div
+      aria-hidden="true"
+      className={`pointer-events-none absolute inset-0 ${cabinState === "closed" ? "invisible" : ""}`}
+      style={{ maskImage: snowBehindX, WebkitMaskImage: snowBehindX }}
+      initial={initialCabinState}
+      animate={cabinState}
+      variants={snowVariants}
+    >
+      <div className="absolute inset-0" style={{ maskImage: snowBehindY, WebkitMaskImage: snowBehindY }}>
+        <SnowLayer flakes={behindFlakes} frozen={frozen} />
+      </div>
+    </motion.div>
+  );
+
   // Everything in front of the outdoors.
   const foreground = (
     <>
+      {snowBehind}
+
       {HOUSE_SIGN_ENABLED && (
         <motion.div
           className="absolute"
@@ -400,16 +569,15 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
         </motion.div>
       )}
 
-      {layout.mode === "portrait" ? (
-        <motion.div
-          className="absolute"
-          style={{ left: layout.cabinX, width: CABIN_WIDTH, height: CABIN_HEIGHT, transformOrigin: "50% 100%" }}
-          initial={initialCabinState}
-          animate={cabinState}
-          variants={cabinGroupVariants as Variants}
-        >
-          {chimneySmoke}
+      {chimneySmoke}
 
+      {/* The exterior, front wall and interior all sit in the one cabin
+          frame, so they stay exactly registered while they cross-fade
+          mid-zoom, and the open interior lands at exactly the open size.
+          The click target and door hint live here too, so they track the
+          visible closed art. */}
+      {cabinFrame(
+        <>
           <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={interiorVariants}>
             <CabinInterior isOpen={cabinState === "open"} />
           </motion.div>
@@ -425,73 +593,15 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
             {exteriorArt}
           </motion.div>
 
-          <button
-            type="button"
-            aria-label="Enter the cabin"
-            onClick={handleEnter}
-            disabled={cabinState !== "closed"}
-            className="absolute inset-0 cursor-pointer border-0 bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
-          />
+          {entryButton}
 
           {cabinState === "closed" && <CabinEntryHint x={DOOR_HINT.x} y={DOOR_HINT.y} scale={DOOR_HINT.scale} />}
-        </motion.div>
-      ) : (
-        <div
-          className="absolute"
-          style={{
-            left: layout.cabinX,
-            top: layout.cabinY,
-            width: CABIN_WIDTH,
-            height: CABIN_HEIGHT,
-            transform: `scale(${layout.cabinArt.shellScale})`,
-            transformOrigin: "50% 0%",
-          }}
-        >
-          {/* Art group: scales from closedArtScale to 100% of the shell,
-              from its bottom-center, so the base stays put and the growth
-              goes up and out. The interior sits in this same group, so the
-              exterior, front wall and interior stay exactly registered
-              while they cross-fade mid-scale, and the open interior lands
-              at exactly 100% of the shell. Click target and door hint live
-              here too, so they track the visible closed art bounds instead
-              of the larger shell. */}
-          <motion.div
-            className="absolute inset-0"
-            style={{ transformOrigin: "50% 100%" }}
-            initial={initialCabinState}
-            animate={cabinState}
-            variants={artGroupScaleVariants as Variants}
-          >
-            {chimneySmoke}
-
-            <motion.div className="absolute inset-0" initial={initialCabinState} animate={cabinState} variants={interiorVariants}>
-              <CabinInterior isOpen={cabinState === "open"} />
-            </motion.div>
-
-            {/* Never pointer targets -- see the portrait group above. */}
-            <motion.div className="pointer-events-none absolute inset-0" initial={initialCabinState} animate={cabinState} variants={frontWallVariants}>
-              <ArtAsset asset={ASSETS.cabinFrontWall} />
-            </motion.div>
-
-            <motion.div className="pointer-events-none absolute inset-0" initial={initialCabinState} animate={cabinState} variants={exteriorShellVariants}>
-              {exteriorArt}
-            </motion.div>
-
-            <button
-              type="button"
-              aria-label="Enter the cabin"
-              onClick={handleEnter}
-              disabled={cabinState !== "closed"}
-              className="absolute inset-0 cursor-pointer border-0 bg-transparent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-paper disabled:pointer-events-none disabled:cursor-default"
-            />
-
-            {cabinState === "closed" && <CabinEntryHint x={DOOR_HINT.x} y={DOOR_HINT.y} scale={DOOR_HINT.scale} />}
-          </motion.div>
-        </div>
+        </>,
       )}
 
       {/* Snow is the nearest layer of the outdoors, falling in front of the
-          closed cabin; see snowVariants for how it clears the open one. */}
+          closed cabin; see snowVariants for how it hands over to the copy
+          behind the open one. */}
       <motion.div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0"
@@ -500,7 +610,7 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
         animate={cabinState}
         variants={snowVariants}
       >
-        <SnowLayer enabled={!reducedMotion} frozen={frozen} />
+        <SnowLayer flakes={flakes} frozen={frozen} />
       </motion.div>
 
       {TITLE_CARD_ENABLED && (
@@ -514,12 +624,16 @@ export function CabinScene({ foregroundTarget }: CabinSceneProps) {
 
       <LayoutGuide
         mode={mode}
+        layout={layout}
         environment={{
-          snow: reducedMotion ? "off (reduced motion)" : frozen ? "paused" : "active",
+          snow: reducedMotion
+            ? "off (reduced motion)"
+            : `${frozen ? "paused" : "active"} -- ${flakes.length} flakes in front${cabinState === "closed" ? "" : `, ${behindFlakes.length} of them also behind the open cabin (masked in over its box)`}`,
           clouds: `${cloudSummary(clouds)} --×${cloudSpeedFactor} speed (${cabinState === "closed" ? "closed" : "open"})${frozen ? " -- paused" : ""}`,
           parallax: `sky ×${PARALLAX_ZOOM.sky} / mountains ×${PARALLAX_ZOOM.mountains} / foothills ×${PARALLAX_ZOOM.foothills} / ground ×${PARALLAX_ZOOM.ground} from the zoom focus (y ${Math.round(zoomFocusY)})`,
           birds: !BIRDS_ENABLED ? "hidden (disabled for now)" : birdsSpawning ? "active" : "inactive",
           airplane: !AIRPLANE_ENABLED ? "hidden (disabled for now)" : airplaneSpawning ? "active" : "inactive",
+          interiorAmbience,
         }}
       />
     </>

@@ -22,7 +22,7 @@ const FLAKE_SHAPE = {
 // small constant lean per flake, not a simulated sway.
 const MAX_DRIFT = 70;
 
-interface Flake {
+export interface Flake {
   id: number;
   leftPercent: number;
   size: number;
@@ -68,38 +68,52 @@ function createFlakes(count: number, shape: (typeof FLAKE_SHAPE)["desktop"]): Fl
   });
 }
 
+// The cabin scene's one snowfall: generated once per composition mode and
+// then left alone -- the flakes are never re-randomised, and nothing about
+// them is React state. None at all when disabled (reduced motion), rather
+// than something cheaper.
+//
+// There is no hydration risk in generating the flakes during render here:
+// SceneStage only renders its stage children once it has measured the
+// viewport in an effect, so the cabin scene's first render is always a
+// client render, well after hydration. Nothing about the snow is ever part
+// of the server's HTML to disagree with.
+export function useSnowFlakes(enabled: boolean): Flake[] {
+  const mode = useCompositionMode();
+  return useMemo(() => (enabled ? createFlakes(FLAKE_COUNT[mode], FLAKE_SHAPE[mode]) : []), [enabled, mode]);
+}
+
+// The flakes that can ever be inside the stage-x range [left, right] (stage
+// px, over a stage `stageWidth` wide), anywhere on their slanted fall.
+export function flakesCrossing(flakes: Flake[], stageWidth: number, left: number, right: number): Flake[] {
+  return flakes.filter((flake) => {
+    const x = (flake.leftPercent / 100) * stageWidth;
+    return x + Math.min(0, flake.drift) <= right && x + Math.max(0, flake.drift) + flake.size >= left;
+  });
+}
+
 interface SnowLayerProps {
-  // False removes the flakes entirely (reduced motion), rather than
-  // animating something cheaper.
-  enabled: boolean;
+  // From useSnowFlakes. Two layers given the same flakes, mounted together,
+  // draw the very same snowfall: each flake's CSS animation starts on the
+  // same frame with the same delay and duration, so the two copies stay
+  // exactly on top of one another (see the cabin scene, which splits the
+  // snow between in front of the cabin and behind it).
+  flakes: Flake[];
   // True holds every flake exactly where it is -- see useEnvironmentMotion.
   frozen: boolean;
 }
 
 // Procedural snowfall for the cabin scene only, as a pool of CSS-animated
 // flakes. No canvas, no WebGL, no dependency, and no per-frame React state:
-// each flake's randomness is generated once on mount and handed to CSS as
-// inline custom properties (see the `snow-fall` keyframes in globals.css).
+// each flake's randomness is generated once (useSnowFlakes) and handed to
+// CSS as inline custom properties (see the `snow-fall` keyframes in
+// globals.css).
 //
-// There is no hydration risk in generating the flakes during render here:
-// SceneStage only renders its stage children once it has measured the
-// viewport in an effect, so this component's first render is always a
-// client render, well after hydration. Nothing about the snow is ever part
-// of the server's HTML to disagree with.
-//
-// Layering is handled by the cabin scene: it mounts this in front of the
-// cabin, and masks it out over the open cabin so the interior is never
-// snowed on. See snowVariants in CabinScene.
-export function SnowLayer({ enabled, frozen }: SnowLayerProps) {
-  const mode = useCompositionMode();
-
-  // Generated once per composition mode and then left alone -- the flakes
-  // are never re-randomised, and nothing about them is React state.
-  const flakes = useMemo(
-    () => (enabled ? createFlakes(FLAKE_COUNT[mode], FLAKE_SHAPE[mode]) : []),
-    [enabled, mode],
-  );
-
+// Layering is handled by the cabin scene: it mounts the snow in front of the
+// cabin, and once the cabin opens, cross-masks it with a second copy behind
+// the cabin over the open cabin's box -- snow keeps falling behind the
+// interior, but never on it. See snowVariants in CabinScene.
+export function SnowLayer({ flakes, frozen }: SnowLayerProps) {
   if (flakes.length === 0) return null;
 
   return (

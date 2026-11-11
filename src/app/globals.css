@@ -10,6 +10,8 @@
   --wireframe-fill: rgb(91 138 193 / 16%);
   --alert: #ff8a1f;
   --alert-ink: #2a1400;
+  /* The sound icons' dark grey (sound-on/off.png), for the volume panel. */
+  --control-dark: #353535;
   /* The first-load cover: a deeper, more saturated navy than the stage, and
      a brighter, cooler blue-white for its mark. */
   --loader-navy: #081b3a;
@@ -227,6 +229,74 @@ body {
   );
 }
 
+/* The master volume slider beside the sound button (SoundButton), drawn in
+   the sound icons' own language: their dark grey and white, on their 5px
+   art-pixel grid. The panel is the icon's dark with one 5px step cut from
+   each corner; the slider is a 5px white track (dimmed past the value) and a
+   10x15 white block thumb. Its value arrives as --volume (0-1); the filled
+   part runs to the thumb's centre, which travels 5px in from each end. */
+.volume-panel {
+  background: var(--control-dark);
+  clip-path: polygon(
+    0 5px, 5px 5px, 5px 0, calc(100% - 5px) 0, calc(100% - 5px) 5px, 100% 5px,
+    100% calc(100% - 5px), calc(100% - 5px) calc(100% - 5px), calc(100% - 5px) 100%,
+    5px 100%, 5px calc(100% - 5px), 0 calc(100% - 5px)
+  );
+}
+
+.volume-slider {
+  --volume-fill: calc(5px + (100% - 10px) * var(--volume, 0.5));
+  appearance: none;
+  -webkit-appearance: none;
+  height: 15px;
+  margin: 0;
+  background: transparent;
+  cursor: var(--cursor-hand, pointer);
+}
+
+.volume-slider:focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 3px;
+}
+
+.volume-slider::-webkit-slider-runnable-track {
+  height: 5px;
+  background: linear-gradient(
+    to right,
+    var(--paper) var(--volume-fill),
+    rgb(244 247 255 / 28%) var(--volume-fill)
+  );
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 15px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 0;
+  background: var(--paper);
+}
+
+.volume-slider::-moz-range-track {
+  height: 5px;
+  background: rgb(244 247 255 / 28%);
+}
+
+.volume-slider::-moz-range-progress {
+  height: 5px;
+  background: var(--paper);
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 15px;
+  border: 0;
+  border-radius: 0;
+  background: var(--paper);
+}
+
 /* Set on a particle layer whose motion must hold still -- see
    useEnvironmentMotion. This freezes the particles in place; it does not
    hide them. */
@@ -236,21 +306,35 @@ body {
   animation-play-state: paused;
 }
 
-/* Every real control gets the hand cursor. Tailwind's preflight resets
-   buttons to the default arrow, so say it once here (in the base layer, so a
-   utility like disabled:cursor-default still wins) rather
-   than on each one. Decorative hover-only things aren't buttons or links, so
-   they keep the arrow. */
+/* Cursors. The site's own sprites arrive as --cursor-pointer / --cursor-hand
+   on <html>, set by the root layout only when their files exist (see
+   CURSOR_SPRITES in src/data/assets.ts); each carries the browser's own
+   cursor as its fallback, and without them these rules fall back to it
+   directly.
+
+   Every real control gets the hand. Tailwind's preflight resets buttons to
+   the default arrow, so say it once here (in the base layer, so a utility
+   still wins) rather than on each one. Decorative hover-only things aren't
+   buttons or links, so they keep the pointer. Anything clickable that isn't
+   one of these -- or whose own utility would otherwise win -- uses
+   cursor-hand. */
 @layer base {
+  html {
+    cursor: var(--cursor-pointer, auto);
+  }
   a[href],
   button:not(:disabled),
   summary,
   [role="button"]:not([aria-disabled="true"]) {
-    cursor: pointer;
+    cursor: var(--cursor-hand, pointer);
   }
   a[aria-disabled="true"] {
-    cursor: default;
+    cursor: var(--cursor-pointer, default);
   }
+}
+
+@utility cursor-hand {
+  cursor: var(--cursor-hand, pointer);
 }
 
 /* The cabin fire's glow: firelight, not a metronome. Opacity (90-100%) and

@@ -220,10 +220,10 @@ function DetailContent({ entry }: { entry: PortfolioEntry }) {
     };
   }, [autoplay]);
 
-  // Detail routes contribute no environmental ambience. Music and the
-  // foley-enabled flag are untouched -- AudioProvider lives above the route
-  // tree, so anything already playing keeps playing. Returning to the
-  // homepage lets CabinScene restore exterior/interior on its own.
+  // Detail routes contribute no environmental ambience. The gramophone and
+  // the master switch are untouched -- AudioProvider lives above the route
+  // tree, so music that's playing keeps playing. Returning to the homepage
+  // lets CabinScene restore exterior/interior on its own.
   useEffect(() => {
     setAmbientMode("none");
   }, [setAmbientMode]);

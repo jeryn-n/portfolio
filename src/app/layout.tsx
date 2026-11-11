@@ -1,6 +1,10 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import { Silkscreen } from "next/font/google";
 import { AppProviders } from "@/components/providers/AppProviders";
+import { CURSOR_SPRITES } from "@/data/assets";
 import "./globals.css";
 
 // The cabin sign's face (see CabinInterior), for both the name and the title:
@@ -26,9 +30,24 @@ export const metadata: Metadata = {
   },
 };
 
+// The site's cursor sprites that are actually in public/, as the CSS
+// variables globals.css reads. Checked while the page renders -- at build
+// time for the static pages, on every request in `next dev`, as /video does
+// for its media -- so a sprite that isn't there yet is never requested, and
+// the browser's own cursors stand in.
+function cursorVariables(): CSSProperties {
+  const variables: Record<string, string> = {};
+  for (const [name, sprite] of Object.entries(CURSOR_SPRITES)) {
+    if (existsSync(path.join(process.cwd(), "public", sprite.src))) {
+      variables[`--cursor-${name}`] = `url(${sprite.src}) ${sprite.hotspot.x} ${sprite.hotspot.y}, ${sprite.fallback}`;
+    }
+  }
+  return variables;
+}
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`h-full ${pixelLabel.variable}`}>
+    <html lang="en" className={`h-full ${pixelLabel.variable}`} style={cursorVariables()}>
       <body className="h-full antialiased">
         <AppProviders>{children}</AppProviders>
       </body>

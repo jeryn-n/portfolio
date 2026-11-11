@@ -109,7 +109,9 @@ export function WorldSceneProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      playSfx("swipe");
+      // One gust per accepted world travel, either direction (the channel
+      // replaces rather than stacks). Instant jumps above don't get one.
+      playSfx("transitionWind");
 
       setTransitionLock("transitioning");
       lockRef.current = "transitioning";

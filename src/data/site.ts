@@ -13,6 +13,11 @@ export const PROJECTS_ENABLED = true;
 // PROJECTS_ENABLED. Set to false to show the entries.
 export const PROJECTS_UNDER_CONSTRUCTION = true;
 
+// The standalone video editing portfolio. The menu is its only entry point
+// on the site -- it's no part of the world's scene travel, and none of the
+// site's own sound plays there (see AudioProvider).
+export const VIDEO_PATH = "/video";
+
 export interface SiteData {
   name: string;
   title: string;

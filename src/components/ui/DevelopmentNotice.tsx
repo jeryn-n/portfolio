@@ -1,7 +1,8 @@
 "use client";
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSiteUI } from "./SiteUIProvider";
 
 const EASE: [number, number, number, number] = [0.4, 0, 0.2, 1];
 
@@ -13,11 +14,21 @@ let dismissedThisVisit = false;
 // homepage, in the /video page's card style (white card, small tracked
 // label, pixel heading). It fades in once the first-load cover has gone
 // (`visible`) and fades out again when clicked. On phones it sits higher, clear
-// of the centred bottom scene arrow.
+// of the centred bottom scene arrow. While it's up, it tells the site UI
+// (devNoticeShowing), which slides the sound button out from under it.
 export function DevelopmentNotice({ visible }: { visible: boolean }) {
   const [dismissed, setDismissed] = useState(dismissedThisVisit);
   const reducedMotion = useReducedMotion() ?? false;
   const offsetY = reducedMotion ? 0 : 12;
+  const shown = visible && !dismissed;
+  const { setDevNoticeShowing } = useSiteUI();
+
+  // The cleanup also covers leaving the homepage, which hides this.
+  useEffect(() => {
+    if (!shown) return;
+    setDevNoticeShowing(true);
+    return () => setDevNoticeShowing(false);
+  }, [shown, setDevNoticeShowing]);
 
   function dismiss() {
     dismissedThisVisit = true;
@@ -26,7 +37,7 @@ export function DevelopmentNotice({ visible }: { visible: boolean }) {
 
   return (
     <AnimatePresence>
-      {visible && !dismissed && (
+      {shown && (
         <motion.button
           type="button"
           onClick={dismiss}
